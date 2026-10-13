@@ -204,6 +204,102 @@
     renderAll();
     if (message) toastSafe(message);
   }
+  let profilePhotoObjectUrl = '';
+  let messageChannel = null;
+  function setAvatar(el, url, fallback) {
+    if (!el) return;
+    el.innerHTML = url ? '<img alt="Profile photo" src="'+safe(url)+'">' : safe((fallback || 'A').slice(0,1).toUpperCase());
+  }
+  async function setupProfileUI() {
+    if (!user || !profile) return;
+    const name = profile.display_name || user.user_metadata?.display_name || '';
+    const country = profile.country_code || user.user_metadata?.country_code || '';
+    const nameInput = document.getElementById('profileDisplayName');
+    const countryInput = document.getElementById('profileCountry');
+    if (nameInput && document.activeElement !== nameInput) nameInput.value = name;
+    if (countryInput && document.activeElement !== countryInput) countryInput.value = country;
+    let avatarUrl = profile.avatar_url || '';
+    if (profile.avatar_path && !avatarUrl) {
+      const { data } = await client.storage.from('profile-photos').createSignedUrl(profile.avatar_path, 3600);
+      avatarUrl = data?.signedUrl || '';
+      profile.avatar_url = avatarUrl;
+    }
+    setAvatar(document.getElementById('profileAvatarButton'), avatarUrl, name);
+    setAvatar(document.getElementById('profileAvatarPreview'), avatarUrl, name);
+    const photoInput = document.getElementById('profilePhotoInput');
+    if (photoInput) photoInput.onchange = async e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { toastSafe('Choose a JPG, PNG or WebP image.'); photoInput.value=''; return; }
+      if (file.size > 5*1024*1024) { toastSafe('Profile photos must be 5 MB or smaller.'); photoInput.value=''; return; }
+      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = user.id+'/avatar-'+Date.now()+'.'+ext;
+      const { error: uploadError } = await client.storage.from('profile-photos').upload(path,file,{contentType:file.type,upsert:false});
+      if (uploadError) { toastSafe('Photo upload failed: '+uploadError.message); return; }
+      const { error } = await client.from('profiles').update({avatar_path:path,updated_at:new Date().toISOString()}).eq('id',user.id);
+      if (error) { toastSafe('Photo uploaded but profile could not be updated: '+error.message); return; }
+      profile.avatar_path=path; profile.avatar_url='';
+      await setupProfileUI();
+      log('Profile photo updated','Profile picture changed');
+      toastSafe('Profile picture updated.');
+    };
+    const form = document.getElementById('profileForm');
+    if (form) form.onsubmit = async e => {
+      e.preventDefault();
+      if (!user) return;
+      const display_name = document.getElementById('profileDisplayName').value.trim().slice(0,80);
+      const country_code = document.getElementById('profileCountry').value;
+      if (!display_name || !country_code) return toastSafe('Enter your display name and choose your country.');
+      const status = document.getElementById('profileStatus');
+      status.textContent='Saving…';
+      const { data, error } = await client.from('profiles').update({display_name,country_code,updated_at:new Date().toISOString()}).eq('id',user.id).select('*').single();
+      if (error) { status.textContent=''; return toastSafe('Profile could not be saved: '+error.message); }
+      profile={...profile,...data};
+      await client.auth.updateUser({data:{display_name,country_code}});
+      status.textContent='Profile saved successfully.';
+      await setupProfileUI();
+      await reloadAndToast('Your profile has been updated.');
+    };
+    const avatarButton = document.getElementById('profileAvatarButton');
+    if (avatarButton) avatarButton.onclick = () => go('profile');
+  }
+  function setupWelcomeReceipt() {
+    const modal=document.getElementById('welcomeGiftModal');
+    if (!modal || !user || state.role !== 'customer') return;
+    const key='apex-welcome-receipt-'+user.id;
+    const gift=state.gift || {amount:0,title:'Welcome',terms:''};
+    document.getElementById('giftModalGiftTitle').textContent=gift.title || 'Welcome gift';
+    document.getElementById('giftModalAmount').textContent=money(gift.amount);
+    document.getElementById('giftModalTerms').textContent=gift.terms || 'Welcome to your private workspace.';
+    const close=()=>{modal.classList.add('hidden');localStorage.setItem(key,'1');};
+    document.getElementById('giftModalClose').onclick=close;
+    document.getElementById('giftModalContinue').onclick=close;
+    if (!localStorage.getItem(key)) modal.classList.remove('hidden');
+  }
+  function setupMessageRealtime() {
+    if (!user) return;
+    if (messageChannel) { client.removeChannel(messageChannel); messageChannel=null; }
+    messageChannel=client.channel('apex-message-alerts-'+user.id+'-'+state.role)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{
+        const m=payload.new || {};
+        if (!m.id || m.sender_id===user.id) return;
+        const relevant=state.role==='admin' || m.conversation_owner_id===user.id;
+        if (!relevant) return;
+        const onMessages=document.getElementById('page-messages')?.classList.contains('active');
+        if (!onMessages) {
+          state.unreadMessages=(Number(state.unreadMessages)||0)+1;
+          const badge=document.getElementById('unreadCount');
+          if (badge) { badge.textContent=String(state.unreadMessages); badge.classList.remove('hidden'); }
+        }
+        const title=state.role==='admin'?'New customer message':'New message from Apex support';
+        toastSafe('✦ '+title+' — tap Messages to open your secure inbox.');
+        if ('Notification' in window && Notification.permission==='granted') {
+          try { new Notification(title,{body:'You have a new message in Apex Terminal.'}); } catch {}
+        }
+        loadCloud();
+      }).subscribe();
+  }
+  document.getElementById('page-messages')?.addEventListener('click',()=>{state.unreadMessages=0;const badge=document.getElementById('unreadCount');if(badge){badge.textContent='0';badge.classList.add('hidden')}});
   function renderCustomers() {
     const target = document.getElementById('adminCustomers');
     if (!target) return;
@@ -270,7 +366,7 @@
   const originalGo = go;
   go = function(page) {
     if (page === 'admin' && state.role !== 'admin') { toastSafe('Administrator access required.'); return; }
-    if (state.role === 'admin' && !['admin','messages'].includes(page)) {
+    if (state.role === 'admin' && !['admin','messages','profile'].includes(page)) {
       toastSafe('That page belongs to the customer workspace.');
       return;
     }
