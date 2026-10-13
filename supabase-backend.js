@@ -726,6 +726,20 @@
     log('Message sent',(state.role==='admin'?'Admin':'Customer')+' · '+(text||attachment_name||'attachment'));
     await reloadAndToast('Message sent.');
   };
+  // Admin can send a customer a clear, amount-specific top-up request in their persistent inbox.
+  document.getElementById('sendTopupRequest')?.addEventListener('click', async () => {
+    if (!user || state.role !== 'admin') return toastSafe('Administrator access required.');
+    const owner = state.activeConversation;
+    if (!owner || !state.conversations.some(c => c.id === owner)) return toastSafe('Open the customer conversation first.');
+    const amount = Number(document.getElementById('adminTopupRequestAmount')?.value);
+    if (!Number.isFinite(amount) || amount <= 0) return toastSafe('Enter a valid top-up amount.');
+    const body = 'TOP-UP REQUEST · ' + money(amount) + '\\nPlease submit a top-up request for this amount using Add funds in your dashboard. Your request will remain pending until it is reviewed. This message is a request only; it does not charge your account or confirm a deposit.';
+    const { error } = await client.from('messages').insert({conversation_owner_id:owner,sender_id:user.id,body,attachment_path:null,attachment_mime:null,attachment_name:null});
+    if (error) return toastSafe('Top-up request message could not be sent: '+error.message);
+    document.getElementById('adminTopupRequestAmount').value='';
+    log('Top-up amount requested by administrator',money(amount)+' · customer notified',money(amount));
+    await reloadAndToast('Top-up request sent. It will appear in the customer inbox and dashboard notification.');
+  });
   // Persist simulated orders in the database; these are not exchange orders.
   document.getElementById('placeOrder').onclick = async () => {
     const id=document.getElementById('tradeAsset').value, amount=Number(document.getElementById('tradeAmount').value), p=price(id);
@@ -747,7 +761,7 @@
     if(error) return toastSafe('Could not close simulated position: '+error.message);
     log('Position closed',o.symbol+' · realized P/L '+(pnl>=0?'+':'−')+money(Math.abs(pnl)));
     await reloadAndToast('Position closed and recorded. Realized P/L has been added to your platform trading balance.');
-    if(window.apexShowTradeSuccess)window.apexShowTradeSuccess({closed:true,pnl,amount:o.amount,intro:o.symbol+' position closed. Recorded result: '+(pnl>=0?'profit ':'loss ')+money(Math.abs(pnl))+'.'});
+    if(window.apexShowTradeSuccess)window.apexShowTradeSuccess({closed:true,pnl,amount:o.amount,intro:o.symbol+' position closed. Recorded result: '+(pnl>0?'profit ':pnl<0?'loss ':'no gain or loss ')+money(Math.abs(pnl))+'. The position capital has been released back to your available platform balance.'});
   };
   // Do not allow preview-only role switching or local reset to bypass cloud authentication.
   window.apexSupabase = client;
