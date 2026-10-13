@@ -115,8 +115,18 @@
     statusLine('Loading your private account…');
     const { data: found, error: profileErr } = await client.from('profiles').select('*').eq('id', user.id).maybeSingle();
     if (profileErr) throw profileErr;
-    if (found) profile = found;
-    else {
+    if (found) {
+      profile = found;
+      const metaCountry = user.user_metadata?.country_code || '';
+      const metaName = user.user_metadata?.display_name || '';
+      if ((!profile.country_code && metaCountry) || (!profile.display_name && metaName)) {
+        const patch = {};
+        if (!profile.country_code && metaCountry) patch.country_code = metaCountry;
+        if (!profile.display_name && metaName) patch.display_name = metaName;
+        const { data: updated, error } = await client.from('profiles').update({...patch,updated_at:new Date().toISOString()}).eq('id',user.id).select('*').single();
+        if (!error && updated) profile = updated;
+      }
+    } else {
       const { data: created, error } = await client.from('profiles').insert({ id: user.id, display_name: user.user_metadata?.display_name || '', country_code: user.user_metadata?.country_code || '', role: 'customer' }).select('*').single();
       if (error) throw error;
       profile = created;
@@ -164,6 +174,7 @@
       if (giftRes.data?.value) state.gift = giftRes.data.value;
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
       state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || ''}));
+      if (state.role === 'admin') state.customers = await Promise.all(state.customers.map(async c => { if (!c.avatar_path) return c; const { data: signed } = await client.storage.from('profile-photos').createSignedUrl(c.avatar_path,3600); return {...c,avatar_url:signed?.signedUrl || ''}; }));
       const profMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id,p.display_name || '']));
       if (profile?.avatar_path) { const { data: avatar } = await client.storage.from('profile-photos').createSignedUrl(profile.avatar_path, 3600); profile.avatar_url = avatar?.signedUrl || ''; }
       state.messages = await Promise.all((messagesRes.data || []).map(async m => {
@@ -243,6 +254,8 @@
       log('Profile photo updated','Profile picture changed');
       toastSafe('Profile picture updated.');
     };
+    const notifyBtn=document.getElementById('enableNotifications');
+    if (notifyBtn) notifyBtn.onclick=async()=>{if (!('Notification' in window)) return toastSafe('This browser does not support system notifications. In-app alerts will still work.'); const permission=await Notification.requestPermission(); toastSafe(permission==='granted'?'Message notifications enabled.':'Notifications were not enabled. In-app alerts will still work.');};
     const form = document.getElementById('profileForm');
     if (form) form.onsubmit = async e => {
       e.preventDefault();
@@ -300,6 +313,13 @@
       }).subscribe();
   }
   document.getElementById('page-messages')?.addEventListener('click',()=>{state.unreadMessages=0;const badge=document.getElementById('unreadCount');if(badge){badge.textContent='0';badge.classList.add('hidden')}});
+  function renderAdminSummary() {
+    if (state.role !== 'admin') return;
+    const customers=document.getElementById('adminStatCustomers'), requests=document.getElementById('adminStatRequests'), messages=document.getElementById('adminStatMessages');
+    if(customers) customers.textContent=String((state.customers||[]).filter(c=>c.role==='customer').length);
+    if(requests) requests.textContent=String((state.requests||[]).filter(r=>String(r.status).toLowerCase()==='pending').length);
+    if(messages) messages.textContent=String((state.messages||[]).length);
+  }
   function renderCustomers() {
     const target = document.getElementById('adminCustomers');
     if (!target) return;
@@ -307,10 +327,10 @@
     const rows = state.customers || [];
     target.innerHTML = rows.length ? rows.map(c => `
       <form class="table-row py-4 flex flex-wrap items-end gap-3" data-customer-form="${safe(c.id)}">
-        <div class="flex-1 min-w-[180px]">
+        <div class="flex items-center gap-3 w-full"><div class="w-11 h-11 rounded-full overflow-hidden border border-[#31536a] bg-[#183b4a] flex items-center justify-center green font-bold">${c.avatar_url?`<img alt="Customer profile" src="${safe(c.avatar_url)}" class="w-full h-full object-cover">`:safe((c.display_name||"C").slice(0,1).toUpperCase())}</div><div class="flex-1 min-w-[180px]">
           <label class="muted text-xs block mb-2">Display name</label>
           <input class="field" name="display_name" maxlength="80" value="${safe(c.display_name)}" placeholder="Customer name">
-          <div class="muted text-[10px] mt-2 break-all">Account ID: ${safe(c.id)} · Role: ${safe(c.role)}</div>
+          <div class="muted text-[10px] mt-2 break-all">Account ID: ${safe(c.id)} · Role: ${safe(c.role)} · Country: ${safe(c.country_code||"Not set")}</div></div></div>
         </div>
         <button class="btn btn-primary" type="submit">Save customer</button>
       </form>`).join('') : '<div class="muted py-5">No customer accounts found.</div>';
@@ -328,7 +348,7 @@
       await reloadAndToast('Customer display name saved.');
     });
   }
-  renderAll = function() { originalRenderAll(); renderCustomers(); };
+  renderAll = function() { originalRenderAll(); renderCustomers(); renderAdminSummary(); };
   // The top-up request is stored in the database and remains pending until an admin reviews it.
   document.getElementById('topupForm').onsubmit = async e => {
     e.preventDefault();
