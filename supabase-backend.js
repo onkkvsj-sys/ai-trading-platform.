@@ -290,7 +290,7 @@
       if (giftRes.data?.value) state.gift = giftRes.data.value;
       if (dashboardRes.data?.value) dashboardSettings={...dashboardSettings,...dashboardRes.data.value};
       applyDashboardSettings();fillDashboardSettingsForm();
-      state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
+      state.requests = (requestsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),note:r.note||'',time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
       state.withdrawals = (withdrawalsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),currency:r.currency,bank_country:r.bank_country,bank_name:r.bank_name,account_holder:r.account_holder,account_number:r.account_number,status:r.status,eligibility_note:r.eligibility_note,admin_message:r.admin_message||'',time:r.created_at,reviewedAt:r.reviewed_at}));
       state.credits = (creditsRes.data || []).map(c => ({id:c.id,user_id:c.user_id,amount:Number(c.amount),credit_type:c.credit_type,note:c.note||'',created_by:c.created_by,created_at:c.created_at}));
       state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || '',is_blocked:!!p.is_blocked,blocked_at:p.blocked_at||null,blocked_reason:p.blocked_reason||'',deleted_at:p.deleted_at||null}));
@@ -312,9 +312,9 @@
         : [{id:user.id,title:'Support conversation',createdAt:''}];
       if (state.role === 'admin' && !state.activeConversation && state.conversations.length) state.activeConversation = state.conversations[0].id;
       if (state.role === 'customer') state.activeConversation = user.id;
-      state.orders = (ordersRes.data || []).map(o => ({id:o.id,asset:o.asset_id,symbol:({bitcoin:'BTC',ethereum:'ETH',solana:'SOL',ripple:'XRP',binancecoin:'BNB'})[o.asset_id] || o.asset_id.toUpperCase(),side:o.side,amount:Number(o.notional_usd),price:Number(o.reference_price),time:o.created_at,closedAt:o.closed_at||null,status:o.status==='closed'?'Closed':o.status==='cancelled'?'Cancelled':'Open',realizedPnl:Number(o.realized_pnl)||0}));
+      state.orders = (ordersRes.data || []).map(o => ({id:o.id,user_id:o.user_id,asset:o.asset_id,symbol:({bitcoin:'BTC',ethereum:'ETH',solana:'SOL',ripple:'XRP',binancecoin:'BNB'})[o.asset_id] || o.asset_id.toUpperCase(),side:o.side,amount:Number(o.notional_usd),price:Number(o.reference_price),time:o.created_at,closedAt:o.closed_at||null,status:o.status==='closed'?'Closed':o.status==='cancelled'?'Cancelled':'Open',realizedPnl:Number(o.realized_pnl)||0}));
       state.realizedPnl = state.orders.filter(o=>o.status==='Closed').reduce((s,o)=>s+o.realizedPnl,0);
-      state.activity = (activityRes.data || []).map(a=>({id:a.id,time:a.created_at,type:a.event_type,detail:a.details?.detail||'',amount:a.details?.amount||''}));
+      state.activity = (activityRes.data || []).map(a=>({id:a.id,user_id:a.user_id,actor_id:a.actor_id,time:a.created_at,type:a.event_type,detail:a.details?.detail||'',amount:a.details?.amount||''}));
       localStorage.setItem(STORE, JSON.stringify(state));
     } catch (err) {
       console.error('Cloud load failed', err);
@@ -526,16 +526,51 @@
     if (!target) return;
     if (state.role !== 'admin') { target.innerHTML = ''; return; }
     const rows = (state.customers || []).filter(c=>!c.deleted_at);
+    const when=value=>value?new Date(value).toLocaleString([], {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'Date unavailable';
+    const record=(title,meta,status='',pending=false)=>'<div class="admin-profile-record"><div>'+safe(title) +(status?'<span class="record-status '+(pending?'pending':'')+'">'+safe(status)+'</span>':'')+'</div><div class="record-meta">'+safe(meta)+'</div></div>';
+    const section=(title,items,empty)=>'<section class="admin-profile-section"><h4>'+safe(title)+' · '+items.length+'</h4>'+(items.length?items.slice(0,12).map(x=>record(x.title,x.meta,x.status||'',!!x.pending)).join(''):'<div class="admin-profile-empty">'+safe(empty)+'</div>')+(items.length>12?'<div class="admin-profile-empty">Showing the latest 12 records.</div>':'')+'</section>';
     target.innerHTML = rows.length ? rows.map(c => {
       const isAdmin=c.role==='admin', blocked=!!c.is_blocked;
       const status=isAdmin?'ADMINISTRATOR':blocked?'BLOCKED':'ACTIVE';
       const avatar=c.avatar_url?'<img alt="Customer profile" src="'+safe(c.avatar_url)+'">':safe((c.display_name||'C').slice(0,1).toUpperCase());
+      const messages=(state.messages||[]).filter(m=>m.conversation===c.id).sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
+      const topups=(state.requests||[]).filter(r=>r.user_id===c.id).sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
+      const withdrawals=(state.withdrawals||[]).filter(r=>r.user_id===c.id).sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
+      const credits=(state.credits||[]).filter(x=>x.user_id===c.id).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+      const orders=(state.orders||[]).filter(o=>o.user_id===c.id).sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
+      const activity=(state.activity||[]).filter(a=>a.user_id===c.id).sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
+      const depositTotal=credits.filter(x=>x.credit_type==='deposit').reduce((s,x)=>s+Number(x.amount||0),0);
+      const earningsTotal=credits.filter(x=>x.credit_type==='earnings').reduce((s,x)=>s+Number(x.amount||0),0);
+      const pendingCount=topups.filter(x=>String(x.status).toLowerCase()==='pending').length+withdrawals.filter(x=>['pending','requested','under_review'].includes(String(x.status).toLowerCase())).length;
+      const messageItems=messages.map(m=>({title:m.text|| (m.data?'Attachment sent':'Message'),meta:(m.sender==='admin'?'Administrator':'Customer')+' · '+when(m.time)+(m.name?' · '+m.name:'')+(m.type?' · '+m.type:'' )}));
+      const topupItems=topups.map(r=>({title:'Funding request · '+money(r.amount),meta:when(r.time)+(r.note?' · '+r.note:''),status:r.status,pending:String(r.status).toLowerCase()==='pending'}));
+      const withdrawalItems=withdrawals.map(r=>({title:'Withdrawal request · '+money(r.amount),meta:when(r.time)+(r.bank_name?' · '+r.bank_name:'')+(r.admin_message?' · Admin: '+r.admin_message:''),status:String(r.status||'pending').replace(/_/g,' ').toUpperCase(),pending:['pending','requested','under_review'].includes(String(r.status).toLowerCase())}));
+      const creditItems=credits.map(x=>({title:(x.credit_type==='deposit'?'Deposit / trading credit':'Earnings credit held for withdrawal')+' · '+money(x.amount),meta:when(x.created_at)+(x.note?' · '+x.note:'')}));
+      const orderItems=orders.map(o=>({title:(o.symbol||o.asset||'Asset')+' · '+String(o.side||'order').toUpperCase()+' · '+money(o.amount),meta:when(o.time)+' · Entry '+money(o.price)+' · P/L '+money(o.realizedPnl||0),status:o.status,pending:String(o.status).toLowerCase()==='open'}));
+      const activityItems=activity.map(a=>({title:a.type||'Account activity',meta:when(a.time)+(a.detail?' · '+a.detail:'')+(a.amount?' · '+a.amount:'')}));
+      const detailsId='customer-details-'+c.id;
       return `
-      <article class="admin-customer-card">
+      <article class="admin-customer-card" id="customer-card-${safe(c.id)}">
         <div class="admin-customer-head">
           <div class="admin-customer-avatar">${avatar}</div>
           <div class="flex-1 min-w-0"><div class="admin-customer-name">${safe(c.display_name||'Customer')}</div><div class="admin-customer-meta">${safe(c.country_code||'Country not set')} · Joined ${safe(c.created_at?new Date(c.created_at).toLocaleDateString():'date unavailable')}</div><div class="admin-customer-meta break-all">ID: ${safe(c.id)}</div></div>
           <span class="admin-account-status ${blocked?'blocked':''}">${status}</span>
+        </div>
+        <button type="button" class="admin-customer-profile-toggle" data-customer-details-toggle="${safe(c.id)}" aria-expanded="false" aria-controls="${safe(detailsId)}"><span>Open customer profile · ${messages.length} messages · ${pendingCount} pending requests</span><span class="toggle-arrow">⌄</span></button>
+        <div class="admin-customer-details-body" id="${safe(detailsId)}" hidden>
+          <div class="admin-profile-stat-grid">
+            <div class="admin-profile-stat"><small>Deposit / top-up credits</small><strong>${money(depositTotal)}</strong></div>
+            <div class="admin-profile-stat"><small>Earnings credits</small><strong>${money(earningsTotal)}</strong></div>
+            <div class="admin-profile-stat"><small>Funding requests</small><strong>${topups.length}</strong></div>
+            <div class="admin-profile-stat"><small>Withdrawal requests</small><strong>${withdrawals.length}</strong></div>
+          </div>
+          ${section('Customer messages',messageItems,'No messages from or to this customer yet.')}
+          ${section('Funding / top-up requests',topupItems,'No funding requests from this customer.')}
+          ${section('Withdrawal requests',withdrawalItems,'No withdrawal requests from this customer.')}
+          ${section('Balance credits recorded by admin',creditItems,'No deposit or earnings credits recorded yet.')}
+          ${section('Trading activity',orderItems,'No trading orders recorded for this customer.')}
+          ${section('Account activity',activityItems,'No account activity records for this customer.')}
+          <div class="admin-profile-actions"><button type="button" class="admin-profile-open-message" data-customer-message="${safe(c.id)}">✉ Open private conversation</button><button type="button" class="admin-profile-open-message" data-customer-review="${safe(c.id)}">↗ Review requests</button></div>
         </div>
         ${!isAdmin ? `
         <form class="admin-account-edit" data-customer-form="${safe(c.id)}">
@@ -552,6 +587,28 @@
         </form>` : '<p class="admin-customer-meta mt-4">Administrator accounts are protected from customer block/delete actions.</p>'}
       </article>`;
     }).join('') : '<div class="muted py-5">No customer accounts found.</div>';
+    target.querySelectorAll('[data-customer-details-toggle]').forEach(btn=>btn.onclick=()=>{
+      const body=document.getElementById('customer-details-'+btn.dataset.customerDetailsToggle);
+      const opening=!!body?.hidden;
+      if(body)body.hidden=!opening;
+      btn.setAttribute('aria-expanded',String(opening));
+      const label=btn.querySelector('span');const c=(state.customers||[]).find(x=>x.id===btn.dataset.customerDetailsToggle);
+      if(label&&c)label.textContent=(opening?'Close':'Open')+' customer profile · '+(state.messages||[]).filter(m=>m.conversation===c.id).length+' messages · '+([...((state.requests||[]).filter(r=>r.user_id===c.id)),...((state.withdrawals||[]).filter(r=>r.user_id===c.id&&['pending','requested','under_review'].includes(String(r.status).toLowerCase())))].filter(r=>opening?true:String(r.status).toLowerCase()==='pending').length)+' pending requests';
+    });
+    target.querySelectorAll('[data-customer-message]').forEach(btn=>btn.onclick=()=>{
+      const id=btn.dataset.customerMessage;const c=(state.customers||[]).find(x=>x.id===id);if(!c)return;
+      state.activeConversation=id;
+      if(!(state.conversations||[]).some(x=>x.id===id))state.conversations=[...(state.conversations||[]),{id,title:c.display_name||'Customer '+id.slice(0,8),createdAt:''}];
+      go('messages');if(typeof renderMessages==='function')renderMessages();
+    });
+    target.querySelectorAll('[data-customer-review]').forEach(btn=>btn.onclick=()=>{
+      const id=btn.dataset.customerReview;
+      const request=(state.requests||[]).find(r=>r.user_id===id&&String(r.status).toLowerCase()==='pending');
+      const withdrawal=(state.withdrawals||[]).find(r=>r.user_id===id&&['pending','requested','under_review'].includes(String(r.status).toLowerCase()));
+      if(request){go('funding');return;}
+      if(withdrawal){go('withdrawals');return;}
+      toastSafe('This customer has no pending funding or withdrawal requests.');
+    });
     target.querySelectorAll('[data-customer-form]').forEach(form => form.onsubmit = async e => {
       e.preventDefault();
       if (state.role !== 'admin' || !user) return toastSafe('Administrator access required.');
