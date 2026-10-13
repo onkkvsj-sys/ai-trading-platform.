@@ -25,7 +25,7 @@
     #authGate{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 70% 0%,#17334a 0,transparent 50%),#08111f}
     #authCard{width:min(440px,100%);background:linear-gradient(145deg,#132132,#0c1725);border:1px solid #2a4054;border-radius:22px;padding:26px;box-shadow:0 24px 80px #0008}
     #authCard input{width:100%;background:#081421;border:1px solid #2a3b50;border-radius:10px;padding:12px;color:#edf4fb;outline:none}
-    #authCard input:focus{border-color:#43e0b0}
+    #authCard input:focus,#authCard select:focus{border-color:#43e0b0}#authCard select{width:100%;background:#081421;border:1px solid #2a3b50;border-radius:10px;padding:12px;color:#edf4fb;outline:none}
     #authGate .authSwitch{border:1px solid #2c4057;border-radius:10px;padding:10px 12px;flex:1;font-size:13px}
     #authGate .authSwitch.active{background:#1b3442;color:#7fe8c8;border-color:#3b6b68}
     #authGate .authSubmit{background:linear-gradient(120deg,#24bd91,#43e0b0);color:#05251e;border:0;border-radius:10px;padding:12px;width:100%;font-weight:800}
@@ -40,7 +40,7 @@
       <p id="authDescription" class="muted text-sm mt-2 mb-5">Sign in to access your private workspace.</p>
       <div class="flex gap-2 mb-5"><button id="authLoginTab" class="authSwitch active" type="button">Sign in</button><button id="authSignupTab" class="authSwitch" type="button">Create account</button></div>
       <form id="authForm" class="space-y-4">
-        <div id="authNameWrap" class="hidden"><label class="muted text-xs block mb-2">Display name</label><input id="authName" autocomplete="name" maxlength="80" placeholder="Your name"></div>
+        <div id="authNameWrap" class="hidden"><label class="muted text-xs block mb-2">Display name</label><input id="authName" autocomplete="name" maxlength="80" placeholder="Your name"></div><div id="authCountryWrap" class="hidden"><label class="muted text-xs block mb-2">Choose your country</label><select id="authCountry" required><option value="">Select country</option><option value="NG">🇳🇬 Nigeria</option><option value="MX">🇲🇽 Mexico</option><option value="US">🇺🇸 United States</option><option value="GB">🇬🇧 United Kingdom</option><option value="ES">🇪🇸 Spain</option><option value="CO">🇨🇴 Colombia</option><option value="AR">🇦🇷 Argentina</option><option value="BR">🇧🇷 Brazil</option><option value="CA">🇨🇦 Canada</option><option value="GH">🇬🇭 Ghana</option><option value="KE">🇰🇪 Kenya</option><option value="ZA">🇿🇦 South Africa</option><option value="IN">🇮🇳 India</option><option value="PH">🇵🇭 Philippines</option><option value="OTHER">🌐 Other</option></select></div>
         <div id="authEmailWrap"><label class="muted text-xs block mb-2">Email address</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
         <div><label class="muted text-xs block mb-2">Password</label><input id="authPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="At least 8 characters"></div>
         <button id="authSubmit" class="authSubmit" type="submit">Sign in securely</button>
@@ -62,6 +62,8 @@
     document.getElementById('authLoginTab').classList.toggle('active', mode === 'login');
     document.getElementById('authSignupTab').classList.toggle('active', mode === 'signup');
     document.getElementById('authNameWrap').classList.toggle('hidden', mode !== 'signup');
+    document.getElementById('authCountryWrap').classList.toggle('hidden', mode !== 'signup');
+    document.getElementById('authCountry').required = mode === 'signup';
     document.getElementById('authTitle').textContent = recovery ? 'Set a new password' : mode === 'login' ? 'Welcome back' : 'Create your account';
     document.getElementById('authDescription').textContent = recovery ? 'Choose a new password for your account.' : mode === 'login' ? 'Sign in to access your private workspace.' : 'Create a private customer account.';
     document.getElementById('authSubmit').textContent = recovery ? 'Update password' : mode === 'login' ? 'Sign in securely' : 'Create account';
@@ -77,6 +79,7 @@
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
     const display_name = document.getElementById('authName').value.trim();
+    const country_code = document.getElementById('authCountry').value;
     const submit = document.getElementById('authSubmit');
     submit.disabled = true; submit.textContent = 'Please wait…'; statusLine('');
     try {
@@ -87,7 +90,7 @@
         await client.auth.signOut();
         setAuthMode('login');
       } else if (authMode === 'signup') {
-        const { data, error } = await client.auth.signUp({ email, password, options: { data: { display_name }, emailRedirectTo: location.origin + location.pathname } });
+        const { data, error } = await client.auth.signUp({ email, password, options: { data: { display_name, country_code }, emailRedirectTo: location.origin + location.pathname } });
         if (error) throw error;
         if (data.session) await activate(data.session.user);
         else statusLine('Account created. Check your email to confirm it, then return here to sign in.');
@@ -114,12 +117,13 @@
     if (profileErr) throw profileErr;
     if (found) profile = found;
     else {
-      const { data: created, error } = await client.from('profiles').insert({ id: user.id, display_name: user.user_metadata?.display_name || '', role: 'customer' }).select('*').single();
+      const { data: created, error } = await client.from('profiles').insert({ id: user.id, display_name: user.user_metadata?.display_name || '', country_code: user.user_metadata?.country_code || '', role: 'customer' }).select('*').single();
       if (error) throw error;
       profile = created;
     }
     state.role = profile.role === 'admin' ? 'admin' : 'customer';
     document.getElementById('roleBtn').textContent = 'Account: ' + state.role;
+    setupProfileUI();
     document.getElementById('roleBtn').disabled = true;
     if (!document.getElementById('signOutBtn')) {
       const signOut = document.createElement('button');
@@ -134,6 +138,9 @@
     document.getElementById('layout').classList.remove('hidden');
     cloudReady = true;
     await loadCloud();
+    setupProfileUI();
+    setupWelcomeReceipt();
+    setupMessageRealtime();
     // Keep the workspaces separate after every authenticated login.
     document.querySelectorAll('.customer-only').forEach(el => el.classList.toggle('hidden', state.role === 'admin'));
     document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', state.role !== 'admin'));
@@ -156,8 +163,9 @@
       for (const r of [giftRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes]) if (r.error) throw r.error;
       if (giftRes.data?.value) state.gift = giftRes.data.value;
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
-      state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',created_at:p.created_at || ''}));
+      state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || ''}));
       const profMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id,p.display_name || '']));
+      if (profile?.avatar_path) { const { data: avatar } = await client.storage.from('profile-photos').createSignedUrl(profile.avatar_path, 3600); profile.avatar_url = avatar?.signedUrl || ''; }
       state.messages = await Promise.all((messagesRes.data || []).map(async m => {
         let data = '';
         if (m.attachment_path) {
