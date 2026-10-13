@@ -5,6 +5,8 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null default '',
+  country_code text not null default '',
+  avatar_path text not null default '',
   role text not null default 'customer' check (role in ('customer','admin')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -182,8 +184,8 @@ create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, display_name, role)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', ''), 'customer')
+  insert into public.profiles (id, display_name, country_code, role)
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', ''), coalesce(new.raw_user_meta_data ->> 'country_code', ''), 'customer')
   on conflict (id) do nothing;
   return new;
 end;
@@ -226,6 +228,28 @@ with check (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = 
 drop policy if exists chat_files_delete_owner_or_admin on storage.objects;
 create policy chat_files_delete_owner_or_admin on storage.objects for delete to authenticated
 using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or private.is_admin()));
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('profile-photos','profile-photos',false,5242880,array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update set public=false, file_size_limit=5242880, allowed_mime_types=array['image/jpeg','image/png','image/webp'];
+drop policy if exists "profile_photos_read_owner_or_admin" on storage.objects;
+create policy "profile_photos_read_owner_or_admin" on storage.objects for select to authenticated
+using (bucket_id='profile-photos' and ((storage.foldername(name))[1]=auth.uid()::text or private.is_admin()));
+drop policy if exists "profile_photos_insert_owner" on storage.objects;
+create policy "profile_photos_insert_owner" on storage.objects for insert to authenticated
+with check (bucket_id='profile-photos' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists "profile_photos_update_owner" on storage.objects;
+create policy "profile_photos_update_owner" on storage.objects for update to authenticated
+using (bucket_id='profile-photos' and (storage.foldername(name))[1]=auth.uid()::text)
+with check (bucket_id='profile-photos' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists "profile_photos_delete_owner" on storage.objects;
+create policy "profile_photos_delete_owner" on storage.objects for delete to authenticated
+using (bucket_id='profile-photos' and (storage.foldername(name))[1]=auth.uid()::text);
+do $ begin
+  if exists (select 1 from pg_publication where pubname='supabase_realtime') and not exists (
+    select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='messages'
+  ) then execute 'alter publication supabase_realtime add table public.messages'; end if;
+end $;
 
 revoke all on function private.is_admin() from public, anon;
 grant execute on function private.is_admin() to authenticated;
