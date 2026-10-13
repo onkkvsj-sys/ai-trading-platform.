@@ -494,22 +494,29 @@
     document.getElementById('withdrawPreviewHolder').textContent=holder;
     document.getElementById('withdrawPreviewAccount').textContent=raw.length?'•••• •••• '+raw.slice(-4):'•••• ••••';
   }
+  function refreshWithdrawalCountryOptions(){
+    if(!withdrawCountryEl)return;
+    const previous=withdrawCountryEl.value||'Nigeria';
+    const names=COUNTRY_CODES.map(code=>({code,name:code==='OTHER'?'Other / Other region':new Intl.DisplayNames(['en'],{type:'region'}).of(code)||code,label:code==='OTHER'?'Other / Other region':new Intl.DisplayNames([document.documentElement.lang||'en'],{type:'region'}).of(code)||code}));
+    withdrawCountryEl.innerHTML=names.map(c=>'<option value="'+safe(c.name)+'" data-code="'+c.code+'">'+countryFlag(c.code)+' '+safe(c.label)+'</option>').join('');
+    withdrawCountryEl.value=names.some(c=>c.name===previous)?previous:(names.find(c=>c.code==='NG')?.name||'Nigeria');
+  }
   function refreshBankOptions(){
     const country=withdrawCountryEl.value;
     const lists={
-      'Nigeria':['Access Bank','Citibank Nigeria','Ecobank Nigeria','Fidelity Bank','First Bank of Nigeria','First City Monument Bank (FCMB)','Globus Bank','GTBank','Keystone Bank','Moniepoint','OPay','Palmpay','Polaris Bank','Providus Bank','Stanbic IBTC','Sterling Bank','SunTrust Bank','UBA','Union Bank','Unity Bank','Wema Bank','Zenith Bank'],
+      'Nigeria':['Access Bank','Citibank Nigeria','Ecobank Nigeria','Fidelity Bank','First Bank of Nigeria','First City Monument Bank (FCMB)','Globus Bank','GTBank','Keystone Bank','Moniepoint','OPay','PalmPay','Polaris Bank','Providus Bank','Stanbic IBTC','Sterling Bank','SunTrust Bank','UBA','Union Bank','Unity Bank','Wema Bank','Zenith Bank'],
       'Mexico':['BBVA México','Banorte','Citibanamex','HSBC México','Santander México','Scotiabank México'],
       'United States':['Bank of America','Capital One','Chase','Citibank','PNC Bank','U.S. Bank','Wells Fargo'],
-      'United Kingdom':['Barclays','HSBC UK','Lloyds Bank','Monzo','NatWest','Revolut','Santander UK','Starling Bank'],
-      'Other':['Other bank (contact support to confirm eligibility)']
+      'United Kingdom':['Barclays','HSBC UK','Lloyds Bank','Monzo','NatWest','Revolut','Santander UK','Starling Bank']
     };
-    const list=lists[country]||lists.Other;
-    withdrawBankEl.innerHTML='<option value="">Choose your bank</option>'+list.map(b=>'<option>'+safe(b)+'</option>').join('');
+    const list=lists[country]||['Other bank — availability must be confirmed by support'];
+    withdrawBankEl.innerHTML='<option value="">Choose your bank</option>'+list.map(b=>'<option value="'+safe(b)+'">'+safe(b)+'</option>').join('');
     updateWithdrawalPreview();
   }
   withdrawCountryEl?.addEventListener('change',refreshBankOptions);
   [withdrawBankEl,withdrawHolderEl,withdrawAccountEl].forEach(el=>el?.addEventListener('input',updateWithdrawalPreview));
   withdrawBankEl?.addEventListener('change',updateWithdrawalPreview);
+  refreshWithdrawalCountryOptions();
   refreshBankOptions();
   document.getElementById('withdrawForm').onsubmit=async e=>{
     e.preventDefault();
