@@ -584,7 +584,7 @@
     if(!bank_name||account_holder.length<2||!/^[A-Za-z0-9]{6,34}$/.test(account_number))return toastSafe('Check the selected bank, account holder name, and account number.');
     const eligible=typeof withdrawableEarnings==='function'?withdrawableEarnings():0;
     if(amount>eligible+0.000001)return toastSafe('Your withdrawal request exceeds earnings currently held for withdrawal. Earnings cannot be used for another trade, and trading results are not eligible for payout until funds and a verified payout service are available.');
-    if(eligible<=0)return toastSafe('There are no earnings currently available for a withdrawal request. Close a practice position with a recorded result or contact the administrator about your account ledger.');
+    if(eligible<=0)return toastSafe('There are no earnings currently available for a withdrawal request. Close a position with a recorded result or contact the administrator about your account ledger.');
     const eligibility_note='Received and held for administrator review. Actual payment and available cash must be verified before any payout.';
     const payload={user_id:user.id,amount,currency:'USD',bank_country,bank_name,account_holder,account_number,status:'pending',eligibility_note};
     const {data:savedRequest,error}=await client.from('withdrawal_requests').insert(payload).select('id,created_at').single();
