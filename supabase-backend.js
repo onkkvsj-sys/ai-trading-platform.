@@ -759,10 +759,13 @@
     const account_number=withdrawAccountEl.value.replace(/[\\s-]/g,'');
     if(!user||!Number.isFinite(amount)||amount<=0)return toastSafe('Enter a valid withdrawal amount and sign in.');
     if(!bank_name||account_holder.length<2||!/^[A-Za-z0-9]{6,34}$/.test(account_number))return toastSafe('Check the selected bank, account holder name, and account number.');
-    const eligible=typeof withdrawableEarnings==='function'?withdrawableEarnings():0;
-    if(amount>eligible+0.000001)return toastSafe('Your withdrawal request exceeds earnings currently held for withdrawal. Earnings cannot be used for another trade, and trading results are not eligible for payout until funds and a verified payout service are available.');
-    if(eligible<=0)return toastSafe('There are no earnings currently available for a withdrawal request. Close a position with a recorded result or contact the administrator about your account ledger.');
-    const eligibility_note='Received and held for administrator review. Actual payment and available cash must be verified before any payout.';
+    const depositAvailable=typeof totalBalance==='function'?Math.max(0,Number(totalBalance())||0):0;
+    const earningsAvailable=typeof withdrawableEarnings==='function'?Math.max(0,Number(withdrawableEarnings())||0):0;
+    const depositPart=Number(Math.min(amount,depositAvailable).toFixed(2));
+    const earningsPart=Number(Math.max(0,amount-depositPart).toFixed(2));
+    if(earningsPart>earningsAvailable+0.000001)return toastSafe('The withdrawal amount is higher than your available deposited balance and eligible earnings. Pending withdrawals are reserved until the administrator reviews them.');
+    const source=depositPart>0&&earningsPart>0?'mixed':depositPart>0?'deposit':'earnings';
+    const eligibility_note='fund_source:'+source+';deposit='+depositPart.toFixed(2)+';earnings='+earningsPart.toFixed(2)+';pending_admin_review';
     const payload={user_id:user.id,amount,currency:'USD',bank_country,bank_name,account_holder,account_number,status:'pending',eligibility_note};
     const {data:savedRequest,error}=await client.from('withdrawal_requests').insert(payload).select('id,created_at').single();
     if(error)return toastSafe('Withdrawal request could not be saved: '+error.message);
