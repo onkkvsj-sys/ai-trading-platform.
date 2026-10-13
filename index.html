@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#08111f">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{color-scheme:dark;--bg:#08111f;--panel:#101c2c;--line:#233246;--muted:#91a1b7;--green:#43e0b0;--blue:#74b8ff}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% -10%,#17334a 0,transparent 42%),var(--bg);color:#edf4fb;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
@@ -14,7 +15,7 @@
 </style></head>
 <body>
 
-<div id="layout" class="min-h-screen md:flex">
+<div id="layout" class="min-h-screen md:flex hidden">
 <aside id="sidebar" class="w-full md:w-[238px] md:min-h-screen md:sticky md:top-0 md:h-screen p-4 flex flex-col gap-5">
 <div class="brand flex items-center gap-3 px-2 pt-2"><div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-[#06251e]" style="background:linear-gradient(140deg,#43e0b0,#7cbaff)">A</div><div><div class="font-bold tracking-wide">APEX <span class="green">TERMINAL</span></div><div class="muted text-[10px] tracking-widest mt-1">PRIVATE AI MARKETS</div></div></div>
 <div class="navlabel eyebrow px-3 mt-2">Workspace</div>
@@ -33,7 +34,7 @@
 <div class="flex flex-wrap gap-2 mb-5"><span class="pill">● Price feed status: <span id="priceStatus">Loading</span></span><span class="muted text-xs self-center ml-auto">Updated <span id="updatedAt">—</span></span></div>
 <section id="page-overview" class="tabpage active space-y-5">
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 grid3">
-<div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Available balance</span><span class="muted">◉</span></div><div id="balance" class="metric mt-4">$0.00</div><div class="muted text-xs mt-3">Approved funding + welcome credit</div></div>
+<div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Simulated buying power</span><span class="muted">◉</span></div><div id="balance" class="metric mt-4">$0.00</div><div class="muted text-xs mt-3">Virtual trading funds · not a deposit</div></div>
 <div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Simulated open P/L</span><span class="muted">↗</span></div><div id="pnl" class="metric mt-4">$0.00</div><div class="muted text-xs mt-3">Open-position mark-to-market estimate</div></div>
 <div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Open simulated positions</span><span class="muted">⌁</span></div><div id="positions" class="metric mt-4">0</div><div class="muted text-xs mt-3">Positions in this workspace</div></div>
 </div>
@@ -60,7 +61,7 @@
 <script>
 const $=id=>document.getElementById(id);
 const STORE='apex-preview-v2';
-const defaults={gift:{amount:250,title:'Apex Welcome Credit',terms:'Welcome credit subject to the terms shown in your account.'},approved:0,realizedPnl:0,requests:[],orders:[],activity:[],conversations:[],messages:[],activeConversation:null,role:'customer',prices:{},history:{}};
+const defaults={gift:{amount:250,title:'Apex Welcome Credit',terms:'Promotional preview credit only. Not cash, a deposit, or a withdrawable balance.'},approved:0,simulatedCash:10000,realizedPnl:0,requests:[],orders:[],activity:[],conversations:[],messages:[],activeConversation:null,role:'customer',prices:{},history:{}};
 let state=load(), selectedAsset='bitcoin', chart;
 function load(){try{return {...structuredClone(defaults),...JSON.parse(localStorage.getItem(STORE)||'{}')}}catch{return structuredClone(defaults)}}
 function save(){localStorage.setItem(STORE,JSON.stringify(state));renderAll()}
@@ -75,7 +76,7 @@ function makeBrief(){const vals=assets.map(a=>({a,p:price(a[0]),c:Number(state.p
 function renderAssets(){const html=assets.map(a=>{const p=price(a[0]),c=Number(state.prices[a[0]]?.usd_24h_change);return '<button class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#182b3d] text-left" data-asset="'+a[0]+'"><div class="w-9 h-9 rounded-full bg-[#20374a] flex items-center justify-center green font-bold">'+a[3]+'</div><div class="flex-1"><div class="text-sm font-semibold">'+a[2]+'</div><div class="muted text-xs">'+a[1]+'</div></div><div class="text-right"><div class="text-sm font-semibold">'+fmtPrice(p)+'</div><div class="text-xs '+(c>=0?'green':'text-rose-300')+'">'+(Number.isFinite(c)?(c>0?'+':'')+c.toFixed(2)+'%':'Change unavailable')+'</div></div></button>'}).join('');$('assetList').innerHTML=html;$('watchlist').innerHTML=html;document.querySelectorAll('[data-asset]').forEach(b=>b.addEventListener('click',()=>{selectedAsset=b.dataset.asset;$('assetSelect').value=selectedAsset;renderChart()}))}
 function renderChart(){if(!$('priceChart'))return;const a=assets.find(a=>a[0]===selectedAsset)||assets[0];$('chartTitle').textContent=a[2]+' · '+a[1];$('chartPrice').textContent=fmtPrice(price(a[0]));const c=Number(state.prices[a[0]]?.usd_24h_change);$('chartChange').textContent=Number.isFinite(c)?(c>=0?'+':'')+c.toFixed(2)+'% over 24 hours · Public market feed':'24-hour change unavailable';const points=state.history[a[0]]||[];if(chart)chart.destroy();chart=new Chart($('priceChart'),{type:'line',data:{labels:points.map(x=>new Date(x.t).toLocaleTimeString()),datasets:[{data:points.map(x=>x.p),borderColor:'#43e0b0',backgroundColor:'rgba(67,224,176,.08)',fill:true,tension:.28,pointRadius:2,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a1b7',maxTicksLimit:5},grid:{color:'#233246'}},y:{ticks:{color:'#91a1b7'},grid:{color:'#233246'}}}}})}
 function renderTradeSnapshot(){const a=assets.find(a=>a[0]===$('tradeAsset')?.value)||assets[0];$('tradeSnapshot').textContent=a[2]+' ('+a[1]+') · Current public price: '+fmtPrice(price(a[0]))+'. Simulated execution uses this snapshot only.'}
-function openOrders(){return state.orders.filter(o=>o.status==='Open')}\nfunction orderPnl(o){const p=price(o.asset);if(!p||!o.price)return 0;const units=o.amount/o.price;return (o.side==='buy'?p-o.price:o.price-p)*units}\nfunction totalPnl(){return Number(state.realizedPnl||0)+openOrders().reduce((sum,o)=>sum+orderPnl(o),0)}\nfunction totalBalance(){return Number(state.approved||0)+Number(state.gift?.amount||0)+Number(state.realizedPnl||0)-openOrders().reduce((sum,o)=>sum+Number(o.amount||0),0)}
+function openOrders(){return state.orders.filter(o=>o.status==='Open')}\nfunction orderPnl(o){const p=price(o.asset);if(!p||!o.price)return 0;const units=o.amount/o.price;return (o.side==='buy'?p-o.price:o.price-p)*units}\nfunction totalPnl(){return Number(state.realizedPnl||0)+openOrders().reduce((sum,o)=>sum+orderPnl(o),0)}\nfunction totalBalance(){return Number(state.simulatedCash||10000)+Number(state.realizedPnl||0)-openOrders().reduce((sum,o)=>sum+Number(o.amount||0),0)}
 function renderBalance(){$('balance').textContent=money(totalBalance());const pnl=totalPnl();$('pnl').textContent=(pnl>0?'+':pnl<0?'−':'')+money(Math.abs(pnl));$('pnl').className='metric mt-4 '+(pnl>=0?'green':'text-rose-300');$('positions').textContent=String(openOrders().length);$('giftAmount').value=state.gift.amount;$('giftTitle').value=state.gift.title;$('giftTerms').value=state.gift.terms;if($('welcomeGiftTitle'))$('welcomeGiftTitle').textContent=state.gift.title;if($('welcomeGiftTerms'))$('welcomeGiftTerms').textContent=state.gift.terms;if($('welcomeGiftValue'))$('welcomeGiftValue').textContent=money(state.gift.amount)}
 function renderActivity(){const rows=state.activity.slice(0,5);$('recentActivity').innerHTML=rows.length?rows.map(activityRow).join(''):'<div class="muted py-5 text-center">No activity yet. Your actions will appear here.</div>';$('allActivity').innerHTML=state.activity.length?state.activity.map(activityRow).join(''):'<div class="muted py-6 text-center">No activity recorded.</div>'}
 function activityRow(x){return '<div class="table-row py-3 flex flex-wrap items-center gap-3"><div class="w-8 h-8 rounded-lg bg-[#1b3041] flex items-center justify-center green">·</div><div class="flex-1 min-w-[130px]"><div class="text-sm font-medium">'+esc(x.type)+'</div><div class="muted text-xs mt-1">'+esc(x.detail)+'</div></div><div class="muted text-xs">'+new Date(x.time).toLocaleString()+'</div>'+(x.amount?'<div class="text-sm font-semibold">'+esc(x.amount)+'</div>':'')+'</div>'}
@@ -101,4 +102,6 @@ $('messageForm').onsubmit=e=>{e.preventDefault();const text=$('messageText').val
 $('exportActivity').onclick=()=>{const csv=['time,type,detail,amount',...state.activity.map(x=>[x.time,x.type,x.detail,x.amount].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='apex-preview-activity.csv';a.click();URL.revokeObjectURL(a.href)};
 $('resetPreview').onclick=()=>{if(confirm('Clear all preview data stored in this browser?')){localStorage.removeItem(STORE);state=load();save();go('overview');toast('Local preview reset.')}};
 renderAll();$('roleBtn').textContent='View: '+(state.role==='admin'?'Admin':'Customer');fetchPrices();setInterval(fetchPrices,60000);
-</script></body></html>
+</script>
+<script src="./supabase-backend.js"></script>
+</body></html>
