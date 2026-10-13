@@ -42,3 +42,7 @@ This branch is not connected to a bank or payment processor. It does not execute
 ## Review
 
 Changes are proposed in draft pull request [#1](https://github.com/onkkvsj-sys/ai-trading-platform./pull/1). The default `main` branch has not been changed by this work.
+
+## Account access controls
+
+The Admin Center includes a secure customer-account manager with profile editing, block/unblock, and permanent delete actions. Blocking a customer signs them out and denies private database and storage access until the administrator unblocks them. Deleting a customer permanently deletes their Supabase Auth user and cascades owned profile, messages, requests, demo orders, and activity records. Administrator accounts cannot be blocked or deleted through the customer controls. The `manage-customer-account` Supabase Edge Function validates the caller's current session and administrator role server-side; its service-role key is never included in browser code.
