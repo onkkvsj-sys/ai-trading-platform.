@@ -14,6 +14,7 @@
   const originalSave = save;
   const originalRenderFunding = renderFunding;
   const originalRenderMessages = renderMessages;
+  const originalRenderAll = renderAll;
   const statusLine = (msg, bad=false) => {
     const el = document.getElementById('authStatus');
     if (el) { el.textContent = msg || ''; el.style.color = bad ? '#ffb7c2' : '#91a1b7'; }
@@ -150,11 +151,12 @@
         client.from('messages').select('*').order('created_at',{ascending:true}),
         client.from('simulated_orders').select('*').order('created_at',{ascending:true}),
         client.from('activity_events').select('*').order('created_at',{ascending:false}).limit(300),
-        client.from('profiles').select('id,display_name')
+        client.from('profiles').select('id,display_name,role,created_at')
       ]);
       for (const r of [giftRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes]) if (r.error) throw r.error;
       if (giftRes.data?.value) state.gift = giftRes.data.value;
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
+      state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',created_at:p.created_at || ''}));
       const profMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id,p.display_name || '']));
       state.messages = await Promise.all((messagesRes.data || []).map(async m => {
         let data = '';
@@ -194,6 +196,35 @@
     renderAll();
     if (message) toastSafe(message);
   }
+  function renderCustomers() {
+    const target = document.getElementById('adminCustomers');
+    if (!target) return;
+    if (state.role !== 'admin') { target.innerHTML = ''; return; }
+    const rows = state.customers || [];
+    target.innerHTML = rows.length ? rows.map(c => `
+      <form class="table-row py-4 flex flex-wrap items-end gap-3" data-customer-form="${safe(c.id)}">
+        <div class="flex-1 min-w-[180px]">
+          <label class="muted text-xs block mb-2">Display name</label>
+          <input class="field" name="display_name" maxlength="80" value="${safe(c.display_name)}" placeholder="Customer name">
+          <div class="muted text-[10px] mt-2 break-all">Account ID: ${safe(c.id)} · Role: ${safe(c.role)}</div>
+        </div>
+        <button class="btn btn-primary" type="submit">Save customer</button>
+      </form>`).join('') : '<div class="muted py-5">No customer accounts found.</div>';
+    target.querySelectorAll('[data-customer-form]').forEach(form => form.onsubmit = async e => {
+      e.preventDefault();
+      if (state.role !== 'admin' || !user) return toastSafe('Administrator access required.');
+      const id = form.dataset.customerForm;
+      const display_name = String(new FormData(form).get('display_name') || '').trim().slice(0,80);
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      const { error } = await client.from('profiles').update({display_name,updated_at:new Date().toISOString()}).eq('id',id);
+      button.disabled = false;
+      if (error) return toastSafe('Customer profile update failed: '+error.message);
+      log('Customer profile updated','Display name updated for account '+id.slice(0,8));
+      await reloadAndToast('Customer display name saved.');
+    });
+  }
+  renderAll = function() { originalRenderAll(); renderCustomers(); };
   // The top-up request is stored in the database and remains pending until an admin reviews it.
   document.getElementById('topupForm').onsubmit = async e => {
     e.preventDefault();
