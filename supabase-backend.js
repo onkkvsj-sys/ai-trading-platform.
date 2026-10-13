@@ -325,6 +325,9 @@
       if (state.role === 'customer') state.activeConversation = user.id;
       state.orders = (ordersRes.data || []).map(o => ({id:o.id,user_id:o.user_id,asset:o.asset_id,symbol:({bitcoin:'BTC',ethereum:'ETH',solana:'SOL',ripple:'XRP',binancecoin:'BNB'})[o.asset_id] || o.asset_id.toUpperCase(),side:o.side,amount:Number(o.notional_usd),price:Number(o.reference_price),time:o.created_at,closedAt:o.closed_at||null,status:o.status==='closed'?'Closed':o.status==='cancelled'?'Cancelled':'Open',realizedPnl:Number(o.realized_pnl)||0}));
       state.realizedPnl = state.orders.filter(o=>o.status==='Closed').reduce((s,o)=>s+o.realizedPnl,0);
+      // Never reuse the previous customer's chart samples; old demo values can distort the y-axis.
+      if (state.portfolioHistoryOwner !== user.id) { state.portfolioHistory = []; state.portfolioHistoryOwner = user.id; }
+      else if (!Array.isArray(state.portfolioHistory) || state.portfolioHistory.some(point => !Number.isFinite(Number(point?.v)) || Math.abs(Number(point.v)) > 100000000)) { state.portfolioHistory = []; }
       state.activity = (activityRes.data || []).map(a=>({id:a.id,user_id:a.user_id,actor_id:a.actor_id,time:a.created_at,type:a.event_type,detail:a.details?.detail||'',amount:a.details?.amount||''}));
       localStorage.setItem(STORE, JSON.stringify(state));
     } catch (err) {
@@ -919,6 +922,7 @@
     const id=document.getElementById('tradeAsset').value, amount=Number(document.getElementById('tradeAmount').value), p=price(id);
     const a=assets.find(x=>x[0]===id);
     if(!p) return toastSafe('No current price available. Refresh the market feed first.');
+    if(!state.updatedAt||Date.now()-new Date(state.updatedAt).getTime()>120000) return toastSafe('Market quote is stale. Wait for a fresh public price before placing a trade.');
     if(!Number.isFinite(amount)||amount<=0) return toastSafe('Enter a valid order size.');
     if(amount>totalBalance()) return toastSafe('Insufficient available trading balance. Only approved funding and administrator-recorded deposit credits are available to trade.');
     const {error}=await client.from('simulated_orders').insert({user_id:user.id,asset_id:id,side:document.getElementById('tradeSide').value,notional_usd:amount,reference_price:p,execution_mode:'simulated',status:'open'});
