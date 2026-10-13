@@ -260,3 +260,136 @@ revoke all on function public.protect_profile_role() from public, anon, authenti
 -- First administrator: after the owner signs up, run a trusted SQL update for that verified account UUID.
 -- update public.profiles set role = 'admin' where id = '<verified-auth-user-uuid>';
 -- Do not expose role assignment to browser code or a public signup form.
+
+-- Account blocking, recovery and hard deletion support.
+alter table public.profiles
+  add column if not exists is_blocked boolean not null default false,
+  add column if not exists blocked_at timestamptz,
+  add column if not exists blocked_reason text not null default '',
+  add column if not exists deleted_at timestamptz;
+
+create or replace function private.is_active_account()
+returns boolean language sql stable security definer
+set search_path = public, private
+as $$
+  select exists(select 1 from public.profiles p where p.id=auth.uid() and not p.is_blocked and p.deleted_at is null);
+$$;
+revoke all on function private.is_active_account() from public;
+grant execute on function private.is_active_account() to authenticated;
+
+create or replace function private.is_admin()
+returns boolean language sql stable security definer
+set search_path = public, private
+as $$
+  select exists(select 1 from public.profiles p where p.id=auth.uid() and p.role='admin' and not p.is_blocked and p.deleted_at is null);
+$$;
+revoke all on function private.is_admin() from public;
+grant execute on function private.is_admin() to authenticated;
+
+create or replace function public.current_account_access_status()
+returns jsonb language sql stable security definer
+set search_path = public, private
+as $$
+  select jsonb_build_object('exists',p.id is not null,'is_blocked',coalesce(p.is_blocked,false),
+    'deleted',p.deleted_at is not null,'blocked_reason',coalesce(p.blocked_reason,''))
+  from (select auth.uid() as uid) caller left join public.profiles p on p.id=caller.uid;
+$$;
+revoke all on function public.current_account_access_status() from public;
+grant execute on function public.current_account_access_status() to authenticated;
+
+create or replace function public.protect_profile_role()
+returns trigger language plpgsql security definer
+set search_path = public, private
+as $$
+begin
+  if auth.uid() is not null and not private.is_admin() then
+    if new.role is distinct from old.role then raise exception 'Only an administrator can change profile roles'; end if;
+    if new.is_blocked is distinct from old.is_blocked or new.blocked_at is distinct from old.blocked_at
+      or new.blocked_reason is distinct from old.blocked_reason or new.deleted_at is distinct from old.deleted_at then
+      raise exception 'Only an administrator can change account access status';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop policy if exists profiles_read_self_or_admin on public.profiles;
+create policy profiles_read_self_or_admin on public.profiles for select to authenticated
+using (private.is_active_account() and (id=(select auth.uid()) or private.is_admin()));
+drop policy if exists profiles_update_self_or_admin on public.profiles;
+create policy profiles_update_self_or_admin on public.profiles for update to authenticated
+using (private.is_active_account() and (id=(select auth.uid()) or private.is_admin()))
+with check (private.is_active_account() and (id=(select auth.uid()) or private.is_admin()));
+drop policy if exists profiles_insert_self on public.profiles;
+create policy profiles_insert_self on public.profiles for insert to authenticated
+with check (private.is_active_account() and id=(select auth.uid()) and role='customer');
+
+drop policy if exists activity_insert_self_or_admin on public.activity_events;
+create policy activity_insert_self_or_admin on public.activity_events for insert to authenticated
+with check (private.is_active_account() and (((user_id=(select auth.uid())) and (actor_id is null or actor_id=(select auth.uid()))) or private.is_admin()));
+drop policy if exists activity_read_owner_or_admin on public.activity_events;
+create policy activity_read_owner_or_admin on public.activity_events for select to authenticated
+using (private.is_active_account() and (user_id=(select auth.uid()) or private.is_admin()));
+
+drop policy if exists messages_insert_as_self on public.messages;
+create policy messages_insert_as_self on public.messages for insert to authenticated
+with check (private.is_active_account() and sender_id=(select auth.uid()) and (conversation_owner_id=(select auth.uid()) or private.is_admin()));
+drop policy if exists messages_read_owner_or_admin on public.messages;
+create policy messages_read_owner_or_admin on public.messages for select to authenticated
+using (private.is_active_account() and (conversation_owner_id=(select auth.uid()) or private.is_admin()));
+drop policy if exists messages_admin_delete on public.messages;
+create policy messages_admin_delete on public.messages for delete to authenticated
+using (private.is_active_account() and private.is_admin());
+
+drop policy if exists orders_insert_own_simulated on public.simulated_orders;
+create policy orders_insert_own_simulated on public.simulated_orders for insert to authenticated
+with check (private.is_active_account() and user_id=(select auth.uid()) and execution_mode='simulated' and status='open');
+drop policy if exists orders_read_owner_or_admin on public.simulated_orders;
+create policy orders_read_owner_or_admin on public.simulated_orders for select to authenticated
+using (private.is_active_account() and (user_id=(select auth.uid()) or private.is_admin()));
+drop policy if exists orders_update_own_simulated on public.simulated_orders;
+create policy orders_update_own_simulated on public.simulated_orders for update to authenticated
+using (private.is_active_account() and user_id=(select auth.uid()) and execution_mode='simulated')
+with check (private.is_active_account() and user_id=(select auth.uid()) and execution_mode='simulated' and status in ('open','closed','cancelled'));
+
+drop policy if exists topups_create_own_pending on public.topup_requests;
+create policy topups_create_own_pending on public.topup_requests for insert to authenticated
+with check (private.is_active_account() and user_id=(select auth.uid()) and status='pending' and reviewed_by is null and reviewed_at is null);
+drop policy if exists topups_read_owner_or_admin on public.topup_requests;
+create policy topups_read_owner_or_admin on public.topup_requests for select to authenticated
+using (private.is_active_account() and (user_id=(select auth.uid()) or private.is_admin()));
+drop policy if exists topups_admin_review on public.topup_requests;
+create policy topups_admin_review on public.topup_requests for update to authenticated
+using (private.is_active_account() and private.is_admin())
+with check (private.is_active_account() and private.is_admin());
+
+drop policy if exists settings_read_authenticated on public.app_settings;
+create policy settings_read_authenticated on public.app_settings for select to authenticated using (private.is_active_account());
+
+drop policy if exists chat_files_delete_owner_or_admin on storage.objects;
+create policy chat_files_delete_owner_or_admin on storage.objects for delete to authenticated
+using (bucket_id='chat-attachments' and private.is_active_account() and ((storage.foldername(name))[1]=(select auth.uid())::text or private.is_admin()));
+drop policy if exists chat_files_insert_owner_or_admin on storage.objects;
+create policy chat_files_insert_owner_or_admin on storage.objects for insert to authenticated
+with check (bucket_id='chat-attachments' and private.is_active_account() and ((storage.foldername(name))[1]=(select auth.uid())::text or private.is_admin()));
+drop policy if exists chat_files_read_owner_or_admin on storage.objects;
+create policy chat_files_read_owner_or_admin on storage.objects for select to authenticated
+using (bucket_id='chat-attachments' and private.is_active_account() and ((storage.foldername(name))[1]=(select auth.uid())::text or private.is_admin()));
+drop policy if exists chat_files_update_owner_or_admin on storage.objects;
+create policy chat_files_update_owner_or_admin on storage.objects for update to authenticated
+using (bucket_id='chat-attachments' and private.is_active_account() and ((storage.foldername(name))[1]=(select auth.uid())::text or private.is_admin()))
+with check (bucket_id='chat-attachments' and private.is_active_account() and ((storage.foldername(name))[1]=(select auth.uid())::text or private.is_admin()));
+
+drop policy if exists profile_photos_delete_owner on storage.objects;
+create policy profile_photos_delete_owner on storage.objects for delete to authenticated
+using (bucket_id='profile-photos' and private.is_active_account() and (storage.foldername(name))[1]=(select auth.uid())::text);
+drop policy if exists profile_photos_insert_owner on storage.objects;
+create policy profile_photos_insert_owner on storage.objects for insert to authenticated
+with check (bucket_id='profile-photos' and private.is_active_account() and (storage.foldername(name))[1]=(select auth.uid())::text);
+drop policy if exists profile_photos_read_owner_or_admin on storage.objects;
+create policy profile_photos_read_owner_or_admin on storage.objects for select to authenticated
+using (bucket_id='profile-photos' and private.is_active_account() and ((storage.foldername(name))[1]=(select auth.uid())::text or private.is_admin()));
+drop policy if exists profile_photos_update_owner on storage.objects;
+create policy profile_photos_update_owner on storage.objects for update to authenticated
+using (bucket_id='profile-photos' and private.is_active_account() and (storage.foldername(name))[1]=(select auth.uid())::text)
+with check (bucket_id='profile-photos' and private.is_active_account() and (storage.foldername(name))[1]=(select auth.uid())::text);
