@@ -293,6 +293,17 @@
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),note:r.note||'',time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
       state.withdrawals = (withdrawalsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),currency:r.currency,bank_country:r.bank_country,bank_name:r.bank_name,account_holder:r.account_holder,account_number:r.account_number,status:r.status,eligibility_note:r.eligibility_note,admin_message:r.admin_message||'',time:r.created_at,reviewedAt:r.reviewed_at}));
       state.credits = (creditsRes.data || []).map(c => ({id:c.id,user_id:c.user_id,amount:Number(c.amount),credit_type:c.credit_type,note:c.note||'',created_by:c.created_by,created_at:c.created_at}));
+      // Give each customer the configured welcome gift exactly once and make it available as trading principal.
+      if (state.role === 'customer' && user && !state.credits.some(c => c.user_id===user.id && String(c.note||'').startsWith('[welcome-gift-v1]'))) {
+        try {
+          const {data:giftClaim,error:giftClaimError}=await client.rpc('claim_welcome_gift');
+          if(giftClaimError) console.warn('Welcome gift claim unavailable:',giftClaimError.message);
+          else if(giftClaim?.claimed && Number(giftClaim.amount)>0) {
+            state.credits.push({id:giftClaim.credit_id,user_id:user.id,amount:Number(giftClaim.amount),credit_type:'deposit',note:'[welcome-gift-v1] Welcome gift trading credit',created_by:user.id,created_at:new Date().toISOString()});
+            state.activity=[...(state.activity||[]),{id:'welcome-'+giftClaim.credit_id,user_id:user.id,time:new Date().toISOString(),type:'Welcome gift credited',detail:'Welcome gift added to available platform trading balance',amount:money(giftClaim.amount)}];
+          }
+        } catch(giftClaimError) { console.warn('Welcome gift claim failed:',giftClaimError); }
+      }
       state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || '',is_blocked:!!p.is_blocked,blocked_at:p.blocked_at||null,blocked_reason:p.blocked_reason||'',deleted_at:p.deleted_at||null}));
       populateAdminCreditCustomers();
       if (state.role === 'admin') state.customers = await Promise.all(state.customers.map(async c => { if (!c.avatar_path) return c; const { data: signed } = await client.storage.from('profile-photos').createSignedUrl(c.avatar_path,3600); return {...c,avatar_url:signed?.signedUrl || ''}; }));
@@ -466,11 +477,13 @@
   function renderAdminSummary() {
     if (state.role !== 'admin') return;
     const customerRows=(state.customers||[]).filter(c=>c.role==='customer');
-    const pendingRows=(state.requests||[]).filter(r=>String(r.status).toLowerCase()==='pending');
+    const pendingTopups=(state.requests||[]).filter(r=>String(r.status).toLowerCase()==='pending');
+    const pendingWithdrawals=(state.withdrawals||[]).filter(r=>['pending','requested','under_review'].includes(String(r.status||'').toLowerCase()));
+    const pendingCount=pendingTopups.length+pendingWithdrawals.length;
     const allMessages=(state.messages||[]).slice().sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
     const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=String(value)};
-    set('adminStatCustomers',customerRows.length);set('adminStatRequests',pendingRows.length);set('adminStatMessages',allMessages.length);
-    set('adminLiveCustomers',customerRows.length);set('adminLiveRequests',pendingRows.length);
+    set('adminStatCustomers',customerRows.length);set('adminStatRequests',pendingCount);set('adminStatMessages',allMessages.length);
+    set('adminLiveCustomers',customerRows.length);set('adminLiveRequests',pendingCount);
     set('adminLiveMarkets',Object.keys(state.prices||{}).filter(k=>Number(state.prices[k]?.usd)>0).length);
     set('adminLiveMessages',allMessages.length);set('adminChartCustomers',customerRows.length);
     set('adminChartActivity',(state.activity||[]).length);set('adminChartPending',pendingRows.length);
@@ -478,7 +491,7 @@
     const dayKey=d=>{const x=new Date(d);return Number.isNaN(x.getTime())?'':x.toISOString().slice(0,10)};
     const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return dayKey(d)});
     const activityCounts=days.map(day=>(state.activity||[]).filter(a=>dayKey(a.time||a.created_at)===day).length);
-    const requestCounts=days.map(day=>(state.requests||[]).filter(a=>dayKey(a.time||a.created_at)===day).length);
+    const requestCounts=days.map(day=>(state.requests||[]).filter(a=>String(a.status||'').toLowerCase()==='pending'&&dayKey(a.time||a.created_at)===day).length+(state.withdrawals||[]).filter(a=>['pending','requested','under_review'].includes(String(a.status||'').toLowerCase())&&dayKey(a.time||a.created_at)===day).length);
     const pathFor=values=>{const max=Math.max(1,...values);return values.map((v,i)=>{const x=8+i*(584/6);const y=155-(v/max)*105;return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}).join(' ')};
     const ap=document.getElementById('adminActivityPath'),rp=document.getElementById('adminRequestPath');
     if(ap)ap.setAttribute('d',pathFor(activityCounts));if(rp)rp.setAttribute('d',pathFor(requestCounts));
@@ -499,8 +512,22 @@
       list.querySelectorAll('[data-admin-open-conversation]').forEach(btn=>btn.onclick=()=>{state.activeConversation=btn.dataset.adminOpenConversation;go('messages');if(typeof renderMessages==='function')renderMessages()});
     }
     const view=document.getElementById('adminViewMessages');if(view)view.onclick=()=>go('messages');
+    const messageCard=document.getElementById('adminLiveMessagesCard');
+    if(messageCard){const openMessages=()=>go('messages');messageCard.onclick=openMessages;messageCard.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMessages();}}}
+    const requestCard=document.getElementById('adminLiveRequestsCard');
+    if(requestCard){const openRequests=()=>{const topupPending=(state.requests||[]).some(r=>String(r.status||'').toLowerCase()==='pending');const target=document.getElementById(topupPending?'adminRequests':'adminWithdrawals');if(target){target.scrollIntoView({behavior:'smooth',block:'start'});target.setAttribute('tabindex','-1');setTimeout(()=>target.focus({preventScroll:true}),350);}};requestCard.onclick=openRequests;requestCard.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openRequests();}}}
     const find=document.getElementById('adminFindCustomer');if(find)find.onclick=()=>{const el=document.getElementById('adminCustomers');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})};
   }
+  window.apexDeleteTopupRequest=async function(id){
+    if(state.role!=='admin'||!user)return toastSafe('Administrator access required.');
+    const request=(state.requests||[]).find(r=>r.id===id);
+    if(!request)return toastSafe('Funding request not found. Refresh and try again.');
+    if(!window.confirm('Delete this funding request from the platform? This removes the request record, not any bank transaction.'))return;
+    const {error}=await client.from('topup_requests').delete().eq('id',id);
+    if(error)return toastSafe('Could not delete funding request: '+error.message);
+    log('Funding request deleted','Deleted request '+id.slice(0,8)+' for '+money(request.amount));
+    await reloadAndToast('Funding request deleted and removed from the queue.');
+  };
   async function manageCustomerAccount(action, id, reason='') {
     if (state.role !== 'admin' || !user) return toastSafe('Administrator access required.');
     const customer=(state.customers||[]).find(c=>c.id===id);
@@ -713,26 +740,34 @@
   function renderWithdrawalAdmin(){
     const target=document.getElementById('adminWithdrawals');
     if(!target||state.role!=='admin')return;
-    const rows=Array.isArray(state.withdrawals)?state.withdrawals:[];
-    const statusMeta={pending:['PENDING · REVIEW','#c4b5fd'],approved:['APPROVED · PAYMENT NOT CONFIRMED','#fbbf24'],topup_required:['TOP-UP REQUIRED','#60a5fa'],rejected:['REJECTED','#fb7185'],paid:['PAID · CONFIRMATION RECORDED','#6ee7b7'],cancelled:['CANCELLED','#94a3b8'],ineligible:['INELIGIBLE','#94a3b8']};
-    target.innerHTML=rows.length?rows.slice().reverse().map(r=>{const status=String(r.status||'pending').toLowerCase(),meta=statusMeta[status]||[status.toUpperCase(),'#c4b5fd'];return '<article class="table-row py-4"><div class="flex flex-wrap justify-between gap-3"><div><div class="font-semibold">'+safe(money(r.amount))+' · '+safe(r.bank_name)+'</div><div class="muted text-xs mt-1">'+safe(r.account_holder)+' · '+safe(r.bank_country)+' · account ending '+safe(String(r.account_number||'').slice(-4))+'</div><div class="muted text-xs mt-1">Customer '+safe(String(r.user_id||'').slice(0,8))+' · '+new Date(r.time).toLocaleString()+'</div><div class="muted text-xs mt-1">Reference '+safe(String(r.id||'').slice(0,8).toUpperCase())+'</div></div><span class="pill" style="background:'+meta[1]+'20;color:'+meta[1]+'">'+safe(meta[0])+'</span></div><label class="muted text-xs block mt-4 mb-2" for="withdrawAdminMessage-'+safe(r.id)+'">Message shown in this customer’s dashboard</label><textarea class="field" rows="3" maxlength="1000" id="withdrawAdminMessage-'+safe(r.id)+'" data-withdraw-message="'+safe(r.id)+'" placeholder="Write a message for this customer…">'+safe(r.admin_message||'')+'</textarea><div class="flex flex-wrap gap-2 mt-3"><button class="btn btn-primary" data-withdraw-review="approved" data-withdraw-id="'+safe(r.id)+'">Approve request</button><button class="btn btn-danger" data-withdraw-review="rejected" data-withdraw-id="'+safe(r.id)+'">Reject request</button><button class="btn" style="border-color:#60a5fa;color:#93c5fd" data-withdraw-review="topup_required" data-withdraw-id="'+safe(r.id)+'">Request top-up</button><button class="btn" data-withdraw-review="message_only" data-withdraw-id="'+safe(r.id)+'">Send / edit message</button></div><p class="muted text-xs mt-2">Your message and selected status will be saved to the customer’s account. Approving is not the same as a confirmed payout.</p></article>'}).join(''):'<div class="muted py-5">No withdrawal requests have been received yet.</div>';
+    const rows=(Array.isArray(state.withdrawals)?state.withdrawals:[]).filter(r=>['pending','requested','under_review'].includes(String(r.status||'').toLowerCase()));
+    const statusMeta={pending:['PENDING · REVIEW','#c4b5fd'],requested:['PENDING · REVIEW','#c4b5fd'],under_review:['UNDER REVIEW','#c4b5fd']};
+    target.innerHTML=rows.length?rows.slice().reverse().map(r=>{const status=String(r.status||'pending').toLowerCase(),meta=statusMeta[status]||['PENDING · REVIEW','#c4b5fd'];return '<article class="table-row py-4"><div class="flex flex-wrap justify-between gap-3"><div><div class="font-semibold">'+safe(money(r.amount))+' · '+safe(r.bank_name)+'</div><div class="muted text-xs mt-1">'+safe(r.account_holder)+' · '+safe(r.bank_country)+' · account ending '+safe(String(r.account_number||'').slice(-4))+'</div><div class="muted text-xs mt-1">Customer '+safe(String(r.user_id||'').slice(0,8))+' · '+new Date(r.time).toLocaleString()+'</div><div class="muted text-xs mt-1">Reference '+safe(String(r.id||'').slice(0,8).toUpperCase())+'</div></div><span class="pill" style="background:'+meta[1]+'20;color:'+meta[1]+'">'+safe(meta[0])+'</span></div><label class="muted text-xs block mt-4 mb-2" for="withdrawAdminMessage-'+safe(r.id)+'">Message shown in this customer’s dashboard</label><textarea class="field" rows="3" maxlength="1000" id="withdrawAdminMessage-'+safe(r.id)+'" data-withdraw-message="'+safe(r.id)+'" placeholder="Write a message for this customer…">'+safe(r.admin_message||'')+'</textarea><div class="flex flex-wrap gap-2 mt-3"><button class="btn btn-primary" data-withdraw-review="approved" data-withdraw-id="'+safe(r.id)+'">Approve request</button><button class="btn btn-danger" data-withdraw-review="rejected" data-withdraw-id="'+safe(r.id)+'">Reject request</button><button class="btn" style="border-color:#60a5fa;color:#93c5fd" data-withdraw-review="topup_required" data-withdraw-id="'+safe(r.id)+'">Request top-up</button><button class="btn" data-withdraw-review="message_only" data-withdraw-id="'+safe(r.id)+'">Send / edit message</button><button class="btn admin-queue-delete" data-withdraw-delete="'+safe(r.id)+'">Delete request</button></div><p class="muted text-xs mt-2">After a status change, this item leaves the pending review queue. Approval alone does not confirm a bank payout.</p></article>'}).join(''):'<div class="muted py-5">No pending withdrawal requests. Reviewed requests are removed from this queue.</div>';
     target.querySelectorAll('[data-withdraw-review]').forEach(btn=>btn.onclick=async()=>{
       if(state.role!=='admin')return toastSafe('Administrator access required.');
       const id=btn.dataset.withdrawId,next=btn.dataset.withdrawReview,field=target.querySelector('[data-withdraw-message="'+id+'"]');
       const custom=(field?.value||'').trim();
       const defaults={approved:'Your withdrawal request has been approved by the administrator. Payment is not confirmed until the payout provider verifies the transfer.',rejected:'Your withdrawal request has been rejected by the administrator. Contact support if you need more information.',topup_required:'Please top up your account before proceeding with this withdrawal request.'};
-      const message=custom|| (next==='message_only'?'':defaults[next]||'');
+      const message=custom||(next==='message_only'?'':defaults[next]||'');
       if(next==='message_only'&&!message)return toastSafe('Write a message for the customer first.');
       const patch={admin_message:message};
       if(next!=='message_only'){
-        patch.status=next;
-        patch.eligibility_note=next==='approved'?'Approved by administrator; payout not yet confirmed.':next==='rejected'?'Rejected by administrator. No payout was sent.': 'Administrator requested a top-up before this withdrawal can proceed.';
+        patch.status=next;patch.eligibility_note=next==='approved'?'Approved by administrator; payout not yet confirmed.':next==='rejected'?'Rejected by administrator. No payout was sent.':'Administrator requested a top-up before this withdrawal can proceed.';
         patch.reviewed_by=user.id;patch.reviewed_at=new Date().toISOString();
       }
       const {error}=await client.from('withdrawal_requests').update(patch).eq('id',id);
       if(error)return toastSafe('Could not update customer request: '+error.message);
       log(next==='message_only'?'Withdrawal message sent':'Withdrawal request '+next,message);
-      await reloadAndToast(next==='message_only'?'Message saved and sent to the customer dashboard.':'Customer dashboard updated: '+(next==='topup_required'?'top-up required':next)+'.');
+      await reloadAndToast(next==='message_only'?'Message saved and sent to the customer dashboard.':'Request updated. It has been removed from the pending review queue.');
+    });
+    target.querySelectorAll('[data-withdraw-delete]').forEach(btn=>btn.onclick=async()=>{
+      if(state.role!=='admin'||!user)return toastSafe('Administrator access required.');
+      const id=btn.dataset.withdrawDelete;
+      if(!window.confirm('Delete this withdrawal request record? This does not cancel or reverse any external bank transaction.'))return;
+      const {error}=await client.from('withdrawal_requests').delete().eq('id',id);
+      if(error)return toastSafe('Could not delete withdrawal request: '+error.message);
+      log('Withdrawal request deleted','Deleted request '+id.slice(0,8));
+      await reloadAndToast('Withdrawal request deleted and removed from the queue.');
     });
   }
 
