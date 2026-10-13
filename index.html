@@ -904,7 +904,7 @@ function apexSetLanguage(lang){const l=lang==='es'?'es':'en';localStorage.setIte
 window.apexSetLanguage=apexSetLanguage;document.getElementById('languageSelect')?.addEventListener('change',e=>apexSetLanguage(e.target.value));apexSetLanguage(localStorage.getItem('apex-language')||'en');
 apexObserveCustomerTranslations();
 renderAll();$('roleBtn').textContent='View: '+(state.role==='admin'?'Admin':'Customer');fetchPrices();setInterval(fetchPrices,15000);
-setInterval(()=>{if(!document.hidden&&document.getElementById('page-markets')?.classList.contains('active'))renderChart()},15000);
+setInterval(()=>{if(!document.hidden&&document.getElementById('page-markets')?.classList.contains('active'))renderChart()},5000);
 </script>
 <script src="./supabase-backend.js?v=20261013-direct-credit-2"></script>
 </body></html>
