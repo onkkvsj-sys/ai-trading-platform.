@@ -312,7 +312,10 @@
         loadCloud();
       }).subscribe();
   }
-  document.getElementById('page-messages')?.addEventListener('click',()=>{state.unreadMessages=0;const badge=document.getElementById('unreadCount');if(badge){badge.textContent='0';badge.classList.add('hidden')}});
+  const clearUnread=()=>{state.unreadMessages=0;const badge=document.getElementById('unreadCount');if(badge){badge.textContent='0';badge.classList.add('hidden')}};
+  document.querySelectorAll('[data-page="messages"]').forEach(el=>el.addEventListener('click',clearUnread));
+  document.getElementById('page-messages')?.addEventListener('click',clearUnread);
+  const toastEl=document.getElementById('toast');if(toastEl){toastEl.style.cursor='pointer';toastEl.title='Open messages';toastEl.addEventListener('click',()=>{if(user)go('messages')})}
   function renderAdminSummary() {
     if (state.role !== 'admin') return;
     const customers=document.getElementById('adminStatCustomers'), requests=document.getElementById('adminStatRequests'), messages=document.getElementById('adminStatMessages');
