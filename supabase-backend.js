@@ -117,10 +117,15 @@
     document.getElementById('authPassword').placeholder = recovery ? 'Enter a new password' : 'At least 8 characters';
     statusLine('');
   }
+  // Public registration is disabled: customers and visitors cannot create accounts from the login screen.
+  document.getElementById('authSignupTab').classList.add('hidden');
+  document.getElementById('authLoginTab').classList.add('active');
+  setAuthMode('login');
   document.getElementById('authLoginTab').onclick = () => setAuthMode('login');
-  document.getElementById('authSignupTab').onclick = () => setAuthMode('signup');
+  document.getElementById('authSignupTab').onclick = e => { e.preventDefault(); setAuthMode('login'); };
   document.getElementById('authForm').onsubmit = async e => {
     e.preventDefault();
+    if (authMode === 'signup') { setAuthMode('login'); statusLine('Account registration is disabled. Please sign in with an existing account.', true); return; }
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
     const display_name = document.getElementById('authName').value.trim();
