@@ -526,6 +526,12 @@
     if (!target) return;
     if (state.role !== 'admin') { target.innerHTML = ''; return; }
     const rows = (state.customers || []).filter(c=>!c.deleted_at);
+    const customerJump=document.getElementById('adminLiveCustomersCard');
+    if(customerJump){
+      const jumpToCustomers=()=>{const list=document.getElementById('adminCustomers');if(list){list.scrollIntoView({behavior:'smooth',block:'start'});list.setAttribute('tabindex','-1');setTimeout(()=>list.focus({preventScroll:true}),350);}};
+      customerJump.onclick=jumpToCustomers;
+      customerJump.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();jumpToCustomers();}};
+    }
     const when=value=>value?new Date(value).toLocaleString([], {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'Date unavailable';
     const record=(title,meta,status='',pending=false)=>'<div class="admin-profile-record"><div>'+safe(title) +(status?'<span class="record-status '+(pending?'pending':'')+'">'+safe(status)+'</span>':'')+'</div><div class="record-meta">'+safe(meta)+'</div></div>';
     const section=(title,items,empty)=>'<section class="admin-profile-section"><h4>'+safe(title)+' · '+items.length+'</h4>'+(items.length?items.slice(0,12).map(x=>record(x.title,x.meta,x.status||'',!!x.pending)).join(''):'<div class="admin-profile-empty">'+safe(empty)+'</div>')+(items.length>12?'<div class="admin-profile-empty">Showing the latest 12 records.</div>':'')+'</section>';
@@ -593,7 +599,7 @@
       if(body)body.hidden=!opening;
       btn.setAttribute('aria-expanded',String(opening));
       const label=btn.querySelector('span');const c=(state.customers||[]).find(x=>x.id===btn.dataset.customerDetailsToggle);
-      if(label&&c)label.textContent=(opening?'Close':'Open')+' customer profile · '+(state.messages||[]).filter(m=>m.conversation===c.id).length+' messages · '+([...((state.requests||[]).filter(r=>r.user_id===c.id)),...((state.withdrawals||[]).filter(r=>r.user_id===c.id&&['pending','requested','under_review'].includes(String(r.status).toLowerCase())))].filter(r=>opening?true:String(r.status).toLowerCase()==='pending').length)+' pending requests';
+      if(label&&c){const pending=((state.requests||[]).filter(r=>r.user_id===c.id&&String(r.status).toLowerCase()==='pending').length)+((state.withdrawals||[]).filter(r=>r.user_id===c.id&&['pending','requested','under_review'].includes(String(r.status).toLowerCase())).length);label.textContent=(opening?'Close':'Open')+' customer profile · '+(state.messages||[]).filter(m=>m.conversation===c.id).length+' messages · '+pending+' pending requests';}
     });
     target.querySelectorAll('[data-customer-message]').forEach(btn=>btn.onclick=()=>{
       const id=btn.dataset.customerMessage;const c=(state.customers||[]).find(x=>x.id===id);if(!c)return;
