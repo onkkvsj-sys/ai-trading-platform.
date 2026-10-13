@@ -65,18 +65,39 @@ create table if not exists public.simulated_orders (
   created_at timestamptz not null default now()
 );
 
-create or replace function public.is_admin()
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+
+create or replace function private.is_admin()
 returns boolean
 language sql
 stable
 security definer
 set search_path = public
-as $$
+as $
   select exists (
     select 1 from public.profiles
     where id = auth.uid() and role = 'admin'
   );
-$$;
+$;
+revoke all on function private.is_admin() from public, anon;
+grant execute on function private.is_admin() to authenticated;
+
+create or replace function public.protect_profile_role()
+returns trigger language plpgsql security definer set search_path = public, private
+as $
+begin
+  if new.role is distinct from old.role and auth.uid() is not null and not private.is_admin() then
+    raise exception 'Only an administrator can change profile roles';
+  end if;
+  return new;
+end;
+$;
+revoke all on function public.protect_profile_role() from public, anon, authenticated;
+drop trigger if exists protect_profile_role_trigger on public.profiles;
+create trigger protect_profile_role_trigger before update on public.profiles
+for each row execute function public.protect_profile_role();
 
 alter table public.profiles enable row level security;
 alter table public.app_settings enable row level security;
@@ -87,11 +108,11 @@ alter table public.simulated_orders enable row level security;
 
 drop policy if exists "profiles_read_self_or_admin" on public.profiles;
 create policy "profiles_read_self_or_admin" on public.profiles
-for select to authenticated using (id = auth.uid() or public.is_admin());
+for select to authenticated using (id = auth.uid() or private.is_admin());
 drop policy if exists "profiles_update_self_or_admin" on public.profiles;
 create policy "profiles_update_self_or_admin" on public.profiles
-for update to authenticated using (id = auth.uid() or public.is_admin())
-with check (id = auth.uid() or public.is_admin());
+for update to authenticated using (id = auth.uid() or private.is_admin())
+with check (id = auth.uid() or private.is_admin());
 -- Role changes must be made by an administrator via trusted server-side code;
 -- do not expose role changes through a public profile-edit form.
 
@@ -100,11 +121,11 @@ create policy "settings_read_authenticated" on public.app_settings
 for select to authenticated using (true);
 drop policy if exists "settings_admin_write" on public.app_settings;
 create policy "settings_admin_write" on public.app_settings
-for all to authenticated using (public.is_admin()) with check (public.is_admin());
+for all to authenticated using (private.is_admin()) with check (private.is_admin());
 
 drop policy if exists "topups_read_owner_or_admin" on public.topup_requests;
 create policy "topups_read_owner_or_admin" on public.topup_requests
-for select to authenticated using (user_id = auth.uid() or public.is_admin());
+for select to authenticated using (user_id = auth.uid() or private.is_admin());
 drop policy if exists "topups_create_own_pending" on public.topup_requests;
 create policy "topups_create_own_pending" on public.topup_requests
 for insert to authenticated with check (
@@ -112,31 +133,31 @@ for insert to authenticated with check (
 );
 drop policy if exists "topups_admin_review" on public.topup_requests;
 create policy "topups_admin_review" on public.topup_requests
-for update to authenticated using (public.is_admin()) with check (public.is_admin());
+for update to authenticated using (private.is_admin()) with check (private.is_admin());
 
 drop policy if exists "messages_read_owner_or_admin" on public.messages;
 create policy "messages_read_owner_or_admin" on public.messages
-for select to authenticated using (conversation_owner_id = auth.uid() or public.is_admin());
+for select to authenticated using (conversation_owner_id = auth.uid() or private.is_admin());
 drop policy if exists "messages_insert_as_self" on public.messages;
 create policy "messages_insert_as_self" on public.messages
 for insert to authenticated with check (
   sender_id = auth.uid() and
-  (conversation_owner_id = auth.uid() or public.is_admin())
+  (conversation_owner_id = auth.uid() or private.is_admin())
 );
 drop policy if exists "messages_admin_delete" on public.messages;
 create policy "messages_admin_delete" on public.messages
-for delete to authenticated using (public.is_admin());
+for delete to authenticated using (private.is_admin());
 
 drop policy if exists "activity_read_owner_or_admin" on public.activity_events;
 create policy "activity_read_owner_or_admin" on public.activity_events
-for select to authenticated using (user_id = auth.uid() or public.is_admin());
+for select to authenticated using (user_id = auth.uid() or private.is_admin());
 drop policy if exists "activity_insert_self_or_admin" on public.activity_events;
 create policy "activity_insert_self_or_admin" on public.activity_events
-for insert to authenticated with check ((user_id = auth.uid() and (actor_id is null or actor_id = auth.uid())) or public.is_admin());
+for insert to authenticated with check ((user_id = auth.uid() and (actor_id is null or actor_id = auth.uid())) or private.is_admin());
 
 drop policy if exists "orders_read_owner_or_admin" on public.simulated_orders;
 create policy "orders_read_owner_or_admin" on public.simulated_orders
-for select to authenticated using (user_id = auth.uid() or public.is_admin());
+for select to authenticated using (user_id = auth.uid() or private.is_admin());
 drop policy if exists "orders_insert_own_simulated" on public.simulated_orders;
 create policy "orders_insert_own_simulated" on public.simulated_orders
 for insert to authenticated with check (
@@ -181,20 +202,20 @@ on conflict (id) do update set public = false, file_size_limit = 10485760;
 
 drop policy if exists chat_files_read_owner_or_admin on storage.objects;
 create policy chat_files_read_owner_or_admin on storage.objects for select to authenticated
-using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or private.is_admin()));
 drop policy if exists chat_files_insert_owner_or_admin on storage.objects;
 create policy chat_files_insert_owner_or_admin on storage.objects for insert to authenticated
-with check (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+with check (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or private.is_admin()));
 drop policy if exists chat_files_update_owner_or_admin on storage.objects;
 create policy chat_files_update_owner_or_admin on storage.objects for update to authenticated
-using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()))
-with check (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or private.is_admin()))
+with check (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or private.is_admin()));
 drop policy if exists chat_files_delete_owner_or_admin on storage.objects;
 create policy chat_files_delete_owner_or_admin on storage.objects for delete to authenticated
-using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or private.is_admin()));
 
-revoke all on function public.is_admin() from public, anon;
-grant execute on function public.is_admin() to authenticated;
+revoke all on function private.is_admin() from public, anon;
+grant execute on function private.is_admin() to authenticated;
 revoke all on function public.protect_profile_role() from public, anon, authenticated;
 
 -- First administrator: after the owner signs up, run a trusted SQL update for that verified account UUID.
