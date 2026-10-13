@@ -538,6 +538,14 @@
           if('Notification' in window&&Notification.permission==='granted'){try{new Notification('Account balance updated',{body:money(row.amount)+' has been credited to your account.'})}catch{}}
         }
         if(state.role==='admin'||row.user_id===user.id)loadCloud();
+      })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'activity_events'},payload=>{
+        const row=payload.new||{};
+        if(state.role==='admin'){
+          loadCloud();
+        }else if(row.user_id===user.id){
+          loadCloud();
+        }
       }).subscribe();
   }
   const clearUnread=()=>{state.unreadMessages=0;if(user)localStorage.setItem('apex-inbox-last-read-'+user.id,String(Date.now()));const badge=document.getElementById('unreadCount');if(badge){badge.textContent='0';badge.classList.add('hidden')}if(typeof renderInboxNotice==='function')renderInboxNotice()};
