@@ -194,6 +194,7 @@
     const status=document.getElementById('authConfirmationStatus');
     if(status)status.textContent='After confirming your email, enter your password and sign in.';
   };
+  const pendingSignupEmailOnLoad=localStorage.getItem('apex-new-account-pending-email');if(pendingSignupEmailOnLoad){document.getElementById('authEmail').value=pendingSignupEmailOnLoad;showAuthConfirmationCard(pendingSignupEmailOnLoad);}
   function toastSafe(msg) { if (typeof toast === 'function') toast(msg); }
   async function activate(nextUser) {
     user = nextUser;
