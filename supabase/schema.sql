@@ -393,3 +393,36 @@ drop policy if exists profile_photos_update_owner on storage.objects;
 create policy profile_photos_update_owner on storage.objects for update to authenticated
 using (bucket_id='profile-photos' and private.is_active_account() and (storage.foldername(name))[1]=(select auth.uid())::text)
 with check (bucket_id='profile-photos' and private.is_active_account() and (storage.foldername(name))[1]=(select auth.uid())::text);
+
+
+-- Private withdrawal destination requests. These are eligibility records only;
+-- no real cash balance or payout provider is connected by this schema.
+create table if not exists public.withdrawal_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount numeric(18,2) not null check (amount > 0),
+  currency text not null default 'USD' check (currency in ('USD','NGN','MXN','EUR','GBP')),
+  bank_country text not null,
+  bank_name text not null,
+  account_holder text not null,
+  account_number text not null,
+  status text not null default 'ineligible' check (status in ('ineligible','pending','approved','rejected','paid','cancelled')),
+  eligibility_note text not null default 'No verified cash balance or payment processor is connected.',
+  reviewed_by uuid references auth.users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table public.withdrawal_requests enable row level security;
+drop policy if exists withdrawal_read_owner_or_admin on public.withdrawal_requests;
+create policy withdrawal_read_owner_or_admin on public.withdrawal_requests for select to authenticated
+using (private.is_active_account() and (user_id=(select auth.uid()) or private.is_admin()));
+drop policy if exists withdrawal_create_own_ineligible on public.withdrawal_requests;
+create policy withdrawal_create_own_ineligible on public.withdrawal_requests for insert to authenticated
+with check (private.is_active_account() and user_id=(select auth.uid()) and status='ineligible'
+and reviewed_by is null and reviewed_at is null
+and eligibility_note='No verified cash balance or payment processor is connected.');
+drop policy if exists withdrawal_admin_review on public.withdrawal_requests;
+create policy withdrawal_admin_review on public.withdrawal_requests for update to authenticated
+using (private.is_active_account() and private.is_admin()) with check (private.is_active_account() and private.is_admin());
+create index if not exists withdrawal_requests_user_created_idx on public.withdrawal_requests(user_id, created_at desc);
+create index if not exists withdrawal_requests_status_idx on public.withdrawal_requests(status, created_at desc);
