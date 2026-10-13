@@ -354,10 +354,41 @@
   const toastEl=document.getElementById('toast');if(toastEl){toastEl.style.cursor='pointer';toastEl.title='Open messages';toastEl.addEventListener('click',()=>{if(user)go('messages')})}
   function renderAdminSummary() {
     if (state.role !== 'admin') return;
-    const customers=document.getElementById('adminStatCustomers'), requests=document.getElementById('adminStatRequests'), messages=document.getElementById('adminStatMessages');
-    if(customers) customers.textContent=String((state.customers||[]).filter(c=>c.role==='customer').length);
-    if(requests) requests.textContent=String((state.requests||[]).filter(r=>String(r.status).toLowerCase()==='pending').length);
-    if(messages) messages.textContent=String((state.messages||[]).length);
+    const customerRows=(state.customers||[]).filter(c=>c.role==='customer');
+    const pendingRows=(state.requests||[]).filter(r=>String(r.status).toLowerCase()==='pending');
+    const allMessages=(state.messages||[]).slice().sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
+    const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=String(value)};
+    set('adminStatCustomers',customerRows.length);set('adminStatRequests',pendingRows.length);set('adminStatMessages',allMessages.length);
+    set('adminLiveCustomers',customerRows.length);set('adminLiveRequests',pendingRows.length);
+    set('adminLiveMarkets',Object.keys(state.prices||{}).filter(k=>Number(state.prices[k]?.usd)>0).length);
+    set('adminLiveMessages',allMessages.length);set('adminChartCustomers',customerRows.length);
+    set('adminChartActivity',(state.activity||[]).length);set('adminChartPending',pendingRows.length);
+    const clock=document.getElementById('adminLiveClock');if(clock)clock.textContent=new Date().toLocaleTimeString();
+    const dayKey=d=>{const x=new Date(d);return Number.isNaN(x.getTime())?'':x.toISOString().slice(0,10)};
+    const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return dayKey(d)});
+    const activityCounts=days.map(day=>(state.activity||[]).filter(a=>dayKey(a.time||a.created_at)===day).length);
+    const requestCounts=days.map(day=>(state.requests||[]).filter(a=>dayKey(a.time||a.created_at)===day).length);
+    const pathFor=values=>{const max=Math.max(1,...values);return values.map((v,i)=>{const x=8+i*(584/6);const y=155-(v/max)*105;return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}).join(' ')};
+    const ap=document.getElementById('adminActivityPath'),rp=document.getElementById('adminRequestPath');
+    if(ap)ap.setAttribute('d',pathFor(activityCounts));if(rp)rp.setAttribute('d',pathFor(requestCounts));
+    const list=document.getElementById('adminConversationList');
+    if(list){
+      const owners=[...new Set(allMessages.map(m=>m.conversation).filter(Boolean))];
+      const recent=owners.map(owner=>({owner,last:allMessages.find(m=>m.conversation===owner),customer:customerRows.find(c=>c.id===owner),title:(state.conversations||[]).find(c=>c.id===owner)?.title||customerRows.find(c=>c.id===owner)?.display_name||'Customer '+String(owner).slice(0,8)}))
+        .sort((a,b)=>new Date(b.last?.time||0)-new Date(a.last?.time||0)).slice(0,4);
+      set('adminConversationSub',allMessages.length+' message'+(allMessages.length===1?'':'s')+' across '+owners.length+' customer conversation'+(owners.length===1?'':'s'));
+      list.innerHTML=recent.length?recent.map(row=>{
+        const m=row.last||{}, initial=(row.title||'C').trim().slice(0,1).toUpperCase();
+        const snippet=(m.text||m.name||(m.type?'Attachment':'No message text')).slice(0,100);
+        const sender=m.sender==='admin'?'Sent by admin':'Customer message';
+        const date=m.time?new Date(m.time).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'Recent message';
+        const avatar=row.customer?.avatar_url?'<img alt="Customer profile" src="'+safe(row.customer.avatar_url)+'">':initial;
+        return '<div class="admin-conversation-row"><div class="admin-conversation-avatar">'+avatar+'</div><div class="admin-conversation-main"><strong>'+safe(row.title)+'</strong><p>'+safe(snippet)+'</p><small>'+safe(date)+' · '+safe(sender)+'</small></div><button class="admin-conversation-open" type="button" data-admin-open-conversation="'+safe(row.owner)+'" aria-label="Open conversation">↗</button></div>';
+      }).join(''):'<div class="muted p-5 text-sm">No customer messages yet. New conversations will appear here.</div>';
+      list.querySelectorAll('[data-admin-open-conversation]').forEach(btn=>btn.onclick=()=>{state.activeConversation=btn.dataset.adminOpenConversation;go('messages');if(typeof renderMessages==='function')renderMessages()});
+    }
+    const view=document.getElementById('adminViewMessages');if(view)view.onclick=()=>go('messages');
+    const find=document.getElementById('adminFindCustomer');if(find)find.onclick=()=>{const el=document.getElementById('adminCustomers');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})};
   }
   function renderCustomers() {
     const target = document.getElementById('adminCustomers');
