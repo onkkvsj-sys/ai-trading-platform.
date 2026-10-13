@@ -89,7 +89,7 @@
     document.getElementById('giftModalContinue').onclick=close;
     modal.classList.remove('hidden');
   }
-  showVisitorWelcomeReceipt().catch(()=>{});
+  // Show the welcome celebration only after a customer account has been created.
   let authMode = 'login';
   function setAuthMode(mode) {
     authMode = mode;
@@ -131,8 +131,9 @@
       } else if (authMode === 'signup') {
         const { data, error } = await client.auth.signUp({ email, password, options: { data: { display_name, country_code }, emailRedirectTo: location.origin + location.pathname } });
         if (error) throw error;
+        localStorage.setItem('apex-new-account-pending-email',email.toLowerCase());
         if (data.session) await activate(data.session.user);
-        else statusLine('Account created. Check your email to confirm it, then return here to sign in.');
+        else statusLine('Account created successfully! Check your email to confirm your account. Your welcome gift celebration will appear after you sign in.');
       } else {
         const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -151,6 +152,9 @@
   async function activate(nextUser) {
     user = nextUser;
     if (!user) return;
+    window.apexCurrentUserId=user.id;
+    const pendingSignupEmail=localStorage.getItem('apex-new-account-pending-email')||'';
+    const accountJustCreated=!!(user.email && pendingSignupEmail && user.email.toLowerCase()===pendingSignupEmail.toLowerCase());
     statusLine('Loading your private account…');
     const { data: access, error: accessError } = await client.rpc('current_account_access_status');
     if (accessError) throw accessError;
@@ -185,6 +189,7 @@
     }
     state.role = profile.role === 'admin' ? 'admin' : 'customer';
     window.apexCurrentRole = state.role;
+    if(accountJustCreated && state.role==='customer') localStorage.setItem('apex-show-account-success-'+user.id,'1');
     const languageControl = document.getElementById('languageSelect');
     if (languageControl) languageControl.classList.toggle('hidden', state.role === 'admin');
     if (state.role === 'admin' && window.apexSetLanguage) window.apexSetLanguage('en');
@@ -204,6 +209,11 @@
     document.getElementById('layout').classList.remove('hidden');
     cloudReady = true;
     await loadCloud();
+    if(accountJustCreated && state.role==='customer'){
+      localStorage.removeItem('apex-new-account-pending-email');
+      log('Account created successfully','Customer account setup completed.');
+      toastSafe('Your account is ready. Welcome gift unlocked!');
+    }
     setupProfileUI();
     setupWelcomeReceipt();
     setupMessageRealtime();
@@ -347,16 +357,21 @@
   function setupWelcomeReceipt() {
     const modal=document.getElementById('welcomeGiftModal');
     if (!modal || !user || state.role !== 'customer') return;
-    const key='apex-welcome-receipt-'+user.id;
-    if (localStorage.getItem('apex-welcome-visitor-shown')) { localStorage.setItem(key,'1'); return; }
-    const gift=state.gift || {amount:0,title:'Welcome',terms:''};
-    document.getElementById('giftModalGiftTitle').textContent=gift.title || 'Welcome gift';
+    const pendingKey='apex-show-account-success-'+user.id;
+    const shownKey='apex-account-success-shown-'+user.id;
+    if (localStorage.getItem(pendingKey)!=='1' || localStorage.getItem(shownKey)==='1') return;
+    const gift=state.gift || {amount:0,title:'Welcome Gift',terms:'Your welcome benefit is ready. It is not a bank deposit.'};
+    document.getElementById('giftModalTitle').textContent='Account created successfully!';
+    document.getElementById('giftModalIntro').textContent='Welcome, '+(profile?.display_name||user.user_metadata?.display_name||'friend')+'! Your account is ready. Here is your welcome gift.';
+    document.getElementById('giftModalGiftTitle').textContent=String(gift.title||'Welcome Gift').replace(/demo/ig,'Welcome');
     document.getElementById('giftModalAmount').textContent=money(gift.amount);
-    document.getElementById('giftModalTerms').textContent=gift.terms || 'Welcome to your private workspace.';
-    const close=()=>{modal.classList.add('hidden');localStorage.setItem(key,'1');};
+    document.getElementById('giftModalTerms').textContent=String(gift.terms||'Your welcome benefit is ready to explore.').replace(/demo[- ]only/ig,'welcome').replace(/demo/ig,'welcome');
+    const close=()=>{modal.classList.add('hidden');localStorage.setItem(shownKey,'1');localStorage.removeItem(pendingKey);};
     document.getElementById('giftModalClose').onclick=close;
     document.getElementById('giftModalContinue').onclick=close;
-    if (!localStorage.getItem(key)) modal.classList.remove('hidden');
+    document.getElementById('giftModalContinue').textContent='Enter your workspace';
+    modal.classList.remove('hidden');
+    if(window.celebrateAccountCreation)window.celebrateAccountCreation();
   }
   function setupMessageRealtime() {
     if (!user) return;
@@ -372,16 +387,18 @@
           state.unreadMessages=(Number(state.unreadMessages)||0)+1;
           const badge=document.getElementById('unreadCount');
           if (badge) { badge.textContent=String(state.unreadMessages); badge.classList.remove('hidden'); }
-        }
-        const title=state.role==='admin'?'New customer message':'New message from Apex support';
-        toastSafe('✦ '+title+' — tap Messages to open your secure inbox.');
-        if ('Notification' in window && Notification.permission==='granted') {
-          try { new Notification(title,{body:'You have a new message in Apex Terminal.'}); } catch {}
-        }
+          const title=state.role==='admin'?'New customer message':'New message from Apex support';
+          toastSafe('✦ '+title+' — your dashboard notification will stay until you open Messages.');
+          if ('Notification' in window && Notification.permission==='granted') {
+            try { new Notification(title,{body:'A new message is waiting in your account inbox.'}); } catch {}
+          }
+        } else if(user) localStorage.setItem('apex-inbox-last-read-'+user.id,String(Date.now()));
         loadCloud();
       }).subscribe();
   }
-  const clearUnread=()=>{state.unreadMessages=0;const badge=document.getElementById('unreadCount');if(badge){badge.textContent='0';badge.classList.add('hidden')}};
+  const clearUnread=()=>{state.unreadMessages=0;if(user)localStorage.setItem('apex-inbox-last-read-'+user.id,String(Date.now()));const badge=document.getElementById('unreadCount');if(badge){badge.textContent='0';badge.classList.add('hidden')}if(typeof renderInboxNotice==='function')renderInboxNotice()};
+  window.apexClearUnread=clearUnread;
+  document.querySelectorAll('[data-goto="messages"]').forEach(el=>el.addEventListener('click',clearUnread));
   document.querySelectorAll('[data-page="messages"]').forEach(el=>el.addEventListener('click',clearUnread));
   document.getElementById('page-messages')?.addEventListener('click',clearUnread);
   const toastEl=document.getElementById('toast');if(toastEl){toastEl.style.cursor='pointer';toastEl.title='Open messages';toastEl.addEventListener('click',()=>{if(user)go('messages')})}
@@ -691,6 +708,7 @@
     if(error) return toastSafe('Trade could not be saved: '+error.message);
     log('Trade placed',document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));
     await reloadAndToast('Trade saved. Portfolio value and position P/L will update when public prices refresh. This platform has not sent an order to an external exchange.');
+    if(window.apexShowTradeSuccess)window.apexShowTradeSuccess({amount,pnl:0,intro:document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' position recorded at '+fmtPrice(p)+'. Follow its estimated P/L in your portfolio.'});
   };
   closeOrder = async function(id) {
     const o=state.orders.find(x=>x.id===id&&x.status==='Open');
@@ -700,6 +718,7 @@
     if(error) return toastSafe('Could not close simulated position: '+error.message);
     log('Position closed',o.symbol+' · realized P/L '+(pnl>=0?'+':'−')+money(Math.abs(pnl)));
     await reloadAndToast('Position closed and recorded. Realized P/L has been added to your platform trading balance.');
+    if(window.apexShowTradeSuccess)window.apexShowTradeSuccess({closed:true,pnl,amount:o.amount,intro:o.symbol+' position closed. Recorded result: '+(pnl>=0?'profit ':'loss ')+money(Math.abs(pnl))+'.'});
   };
   // Do not allow preview-only role switching or local reset to bypass cloud authentication.
   window.apexSupabase = client;
