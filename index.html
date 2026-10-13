@@ -10,137 +10,258 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-    <!-- Top Navigation Bar -->
-    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
-        <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-lg text-slate-950">
-                AI
+    <!-- ================= AUTHENTICATION / LOGIN SCREEN ================= -->
+    <div id="auth-screen" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 mx-auto flex items-center justify-center font-bold text-xl text-slate-950 shadow-lg shadow-emerald-500/20">
+                    AI
+                </div>
+                <h2 id="auth-title" class="text-2xl font-bold tracking-tight">Apex Global Capital</h2>
+                <p id="auth-sub" class="text-xs text-slate-400">Secure Institutional Access Terminal</p>
             </div>
-            <div>
-                <h1 id="nav-title" class="font-bold text-lg tracking-wide">Apex Global Capital</h1>
-                <p id="nav-sub" class="text-xs text-slate-400">Institutional Algorithmic System</p>
-            </div>
-        </div>
 
-        <!-- Language Switcher -->
-        <div class="flex items-center space-x-4">
-            <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700 text-xs font-medium">
-                <button onclick="changeLanguage('en')" id="btn-en" class="px-3 py-1.5 rounded-md transition bg-emerald-600 text-white">EN</button>
-                <button onclick="changeLanguage('es')" id="btn-es" class="px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white">ES</button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Dashboard -->
-    <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
-
-        <!-- Dynamic System Alert Banner -->
-        <div id="system-banner" class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex items-start space-x-4 text-emerald-200">
-            <svg class="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <div>
-                <h4 id="banner-title" class="font-semibold text-sm">Account Status: Active & Verified</h4>
-                <p id="banner-desc" class="text-xs text-emerald-300/80 mt-1">Welcome gift bonus successfully credited. AI automated execution bot is ready for live micro-arbitrage cycles.</p>
-            </div>
-        </div>
-
-        <!-- Portfolio Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <!-- Total Balance -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                <p id="label-bal" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Portfolio Balance</p>
-                <h2 id="val-balance" class="text-3xl font-bold mt-2 text-emerald-400">$6,000.00</h2>
-                <div class="mt-4 flex items-center text-xs text-emerald-500 space-x-1">
-                    <span id="label-growth">+24.8% Daily Yield Active</span>
+            <!-- Language Switcher on Login -->
+            <div class="flex justify-center">
+                <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700 text-xs font-medium">
+                    <button onclick="setAuthLang('en')" id="auth-en" class="px-4 py-1.5 rounded-md transition bg-emerald-600 text-white">EN</button>
+                    <button onclick="setAuthLang('es')" id="auth-es" class="px-4 py-1.5 rounded-md transition text-slate-400 hover:text-white">ES</button>
                 </div>
             </div>
 
-            <!-- Verification / Deposit Status -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                <p id="label-dep" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Verification Deposit</p>
-                <h2 id="val-dep" class="text-3xl font-bold mt-2 text-cyan-400">$1,000.00</h2>
-                <span id="badge-dep" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Active Trade Required</span>
-            </div>
-
-            <!-- Welcome Gift Capital -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                <p id="label-gift" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Welcome Gift Capital</p>
-                <h2 class="text-3xl font-bold mt-2 text-purple-400">$5,000.00</h2>
-                <span id="badge-gift" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Generated Profit Cleared</span>
-            </div>
-        </div>
-
-        <!-- Interactive Terminal Control Panel -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-4 gap-4">
+            <form onsubmit="handleLogin(event)" class="space-y-4">
                 <div>
-                    <h3 id="panel-title" class="font-bold text-lg">AI Automated Execution Bot</h3>
-                    <p id="panel-sub" class="text-xs text-slate-400">High-frequency institutional micro-arbitrage protocol</p>
+                    <label id="label-email" class="block text-xs font-semibold text-slate-400 uppercase mb-1">Email or Client ID</label>
+                    <input type="text" id="login-email" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition" placeholder="client@apexglobal.net">
                 </div>
-                <div class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    <span id="badge-status">LIVE TRADING ACTIVE</span>
+                <div>
+                    <label id="label-pass" class="block text-xs font-semibold text-slate-400 uppercase mb-1">Secure Password</label>
+                    <input type="password" id="login-pass" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition" placeholder="••••••••">
                 </div>
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-4 pt-2">
-                <button onclick="executeTrade()" id="btn-trade" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-emerald-600/20 text-sm">
-                    Execute Active Cycle ($1,000 Deposit)
+                <button type="submit" id="btn-login" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 rounded-xl transition shadow-lg shadow-emerald-600/20 text-sm">
+                    Access Secure Terminal
                 </button>
-                <button onclick="requestWithdrawal()" id="btn-withdraw" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-amber-600/20 text-sm">
-                    Request Full Payout Withdrawal
-                </button>
-            </div>
+            </form>
         </div>
+    </div>
 
-    </main>
+    <!-- ================= MAIN DASHBOARD SCREEN (Hidden until login) ================= -->
+    <div id="dashboard-app" class="hidden flex-1 flex flex-col min-h-screen">
+        <!-- Top Navigation Bar -->
+        <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-lg text-slate-950">
+                    AI
+                </div>
+                <div>
+                    <h1 id="nav-title" class="font-bold text-lg tracking-wide">Apex Global Capital</h1>
+                    <p id="nav-sub" class="text-xs text-slate-400">Institutional Algorithmic System</p>
+                </div>
+            </div>
 
-    <!-- Interactive JavaScript Simulation Logic -->
+            <!-- Language Switcher & Logout -->
+            <div class="flex items-center space-x-3">
+                <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700 text-xs font-medium">
+                    <button onclick="changeLanguage('en')" id="btn-en" class="px-3 py-1.5 rounded-md transition bg-emerald-600 text-white">EN</button>
+                    <button onclick="changeLanguage('es')" id="btn-es" class="px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white">ES</button>
+                </div>
+                <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition">Logout</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+            <!-- System Alert Banner -->
+            <div id="system-banner" class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex items-start space-x-4 text-amber-200">
+                <svg class="w-6 h-6 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <div>
+                    <h4 id="banner-title" class="font-semibold text-sm">System Notice: Active Trading Cycle Required</h4>
+                    <p id="banner-desc" class="text-xs text-amber-300/80 mt-1">Your verification deposit has been credited. Per platform security compliance, active AI trading must be executed before final payout release.</p>
+                </div>
+            </div>
+
+            <!-- Portfolio Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <!-- Total Balance -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <p id="label-bal" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Portfolio Balance</p>
+                    <h2 id="val-balance" class="text-3xl font-bold mt-2 text-emerald-400">$6,000.00</h2>
+                    <div class="mt-4 flex items-center text-xs text-emerald-500 space-x-1">
+                        <span id="label-growth">+24.8% Live Arbitrage Yield</span>
+                    </div>
+                </div>
+
+                <!-- Verification / Deposit Status -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <p id="label-dep" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Verification Deposit</p>
+                    <h2 id="val-dep" class="text-3xl font-bold mt-2 text-cyan-400">$1,000.00</h2>
+                    <span id="badge-dep" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Active Trade Required</span>
+                </div>
+
+                <!-- Welcome Gift Capital -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    <p id="label-gift" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Welcome Gift Capital</p>
+                    <h2 id="val-gift" class="text-3xl font-bold mt-2 text-purple-400">$5,000.00</h2>
+                    <span id="badge-gift" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Generated Profit Cleared</span>
+                </div>
+            </div>
+
+            <!-- Interactive Terminal Control Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-4 gap-4">
+                    <div>
+                        <h3 id="panel-title" class="font-bold text-lg">AI Automated Execution Bot</h3>
+                        <p id="panel-sub" class="text-xs text-slate-400">High-frequency institutional micro-arbitrage protocol</p>
+                    </div>
+                    <div class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span id="badge-status">LIVE TRADING ACTIVE</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4 pt-2">
+                    <button onclick="executeTrade()" id="btn-trade" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-emerald-600/20 text-sm">
+                        Execute Active Cycle ($1,000 Deposit)
+                    </button>
+                    <button onclick="requestWithdrawal()" id="btn-withdraw" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 px-6 rounded-xl transition border border-slate-700 text-sm">
+                        Request Full Payout Withdrawal
+                    </button>
+                </div>
+            </div>
+
+            <!-- Live Ledger History Table -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <h3 id="log-heading" class="font-bold text-base mb-4">Secure Ledger History</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 uppercase font-semibold">
+                            <tr>
+                                <th id="th-time" class="p-3 rounded-l-lg">Timestamp</th>
+                                <th id="th-type" class="p-3">Action Type</th>
+                                <th id="th-amount" class="p-3">Amount</th>
+                                <th id="th-status" class="p-3 rounded-r-lg">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            <tr>
+                                <td class="p-3 text-slate-400">Today, 08:30 AM</td>
+                                <td id="ledger-type-1" class="p-3 font-medium text-white">System Verification Top-Up</td>
+                                <td class="p-3 text-cyan-400">+$1,000.00</td>
+                                <td class="p-3"><span id="ledger-status-1" class="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Completed</span></td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 text-slate-400">Yesterday, 09:12 PM</td>
+                                <td id="ledger-type-2" class="p-3 font-medium text-white">Welcome Gift Profit Payout</td>
+                                <td class="p-3 text-emerald-400">+$5,000.00</td>
+                                <td class="p-3"><span id="ledger-status-2" class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Pending Active Trade</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Script Logic -->
     <script>
-        const textData = {
+        const content = {
             en: {
+                authTitle: "Apex Global Capital",
+                authSub: "Secure Institutional Access Terminal",
+                labelEmail: "Email or Client ID",
+                labelPass: "Secure Password",
+                btnLogin: "Access Secure Terminal",
                 navTitle: "Apex Global Capital",
                 navSub: "Institutional Algorithmic System",
-                bannerTitle: "Account Status: Active & Verified",
-                bannerDesc: "Welcome gift bonus successfully credited. AI automated execution bot is ready for live micro-arbitrage cycles.",
+                bannerTitle: "System Notice: Active Trading Cycle Required",
+                bannerDesc: "Your verification deposit has been credited. Per platform security compliance, active AI trading must be executed before final payout release.",
                 labelBal: "Total Portfolio Balance",
+                labelGrowth: "+24.8% Live Arbitrage Yield",
                 labelDep: "Verification Deposit",
-                labelGift: "Welcome Gift Capital",
                 badgeDep: "Active Trade Required",
+                labelGift: "Welcome Gift Capital",
                 badgeGift: "Generated Profit Cleared",
                 panelTitle: "AI Automated Execution Bot",
                 panelSub: "High-frequency institutional micro-arbitrage protocol",
                 badgeStatus: "LIVE TRADING ACTIVE",
                 btnTrade: "Execute Active Cycle ($1,000 Deposit)",
                 btnWithdraw: "Request Full Payout Withdrawal",
-                alertTrade: "System Notice: Active trading cycle initiated. Your verification deposit is now participating in live market micro-trades.",
+                logHeading: "Secure Ledger History",
+                thTime: "Timestamp",
+                thType: "Action Type",
+                thAmount: "Amount",
+                thStatus: "Status",
+                ledger1: "System Verification Top-Up",
+                ledger2: "Welcome Gift Profit Payout",
+                statusComp: "Completed",
+                statusPend: "Pending Active Trade",
+                alertTrade: "System Notice: Active trading cycle initiated. Your verification deposit is participating in live market micro-trades.",
                 alertWithdraw: "Withdrawal Notice: System requires active trading cycle completion on verification deposit prior to total payout release."
             },
             es: {
+                authTitle: "Apex Global Capital",
+                authSub: "Terminal de Acceso Institucional Seguro",
+                labelEmail: "Correo o ID de Cliente",
+                labelPass: "Contraseña Segura",
+                btnLogin: "Acceder al Terminal Seguro",
                 navTitle: "Apex Global Capital",
                 navSub: "Sistema Algorítmico Institucional",
-                bannerTitle: "Estado de la Cuenta: Activa y Verificada",
-                bannerDesc: "Bono de regalo de bienvenida acreditado exitosamente. El bot de ejecución automatizada por IA está listo para ciclos de microarbitraje en vivo.",
+                bannerTitle: "Aviso del Sistema: Ciclo de Trading Activo Requerido",
+                bannerDesc: "Su depósito de verificación ha sido acreditado. Según las normas de seguridad de la plataforma, se debe ejecutar el trading de IA activo antes de liberar el pago final.",
                 labelBal: "Saldo Total del Portafolio",
+                labelGrowth: "+24.8% Rendimiento de Arbitraje en Vivo",
                 labelDep: "Depósito de Verificación",
-                labelGift: "Capital de Regalo de Bienvenida",
                 badgeDep: "Trading Activo Requerido",
+                labelGift: "Capital de Regalo de Bienvenida",
                 badgeGift: "Ganancia Generada Liquidada",
                 panelTitle: "Bot de Ejecución Automatizada por IA",
                 panelSub: "Protocolo de microarbitraje institucional de alta frecuencia",
                 badgeStatus: "TRADING EN VIVO ACTIVO",
                 btnTrade: "Ejecutar Ciclo Activo (Depósito de $1,000)",
                 btnWithdraw: "Solicitar Retiro de Saldo Total",
-                alertTrade: "Aviso del Sistema: Ciclo de trading activo iniciado. Su depósito de verificación ahora participa en microoperaciones de mercado en vivo.",
+                logHeading: "Historial del Libro Mayor Seguro",
+                thTime: "Marca de Tiempo",
+                thType: "Tipo de Acción",
+                thAmount: "Monto",
+                thStatus: "Estado",
+                ledger1: "Recarga de Verificación del Sistema",
+                ledger2: "Pago de Ganancia del Regalo de Bienvenida",
+                statusComp: "Completado",
+                statusPend: "Pendiente de Trading Activo",
+                alertTrade: "Aviso del Sistema: Ciclo de trading activo iniciado. Su depósito de verificación participa en microoperaciones de mercado en vivo.",
                 alertWithdraw: "Aviso de Retiro: El sistema requiere completar el ciclo de trading activo en el depósito de verificación antes de liberar el pago total."
             }
         };
 
         let currentLang = 'en';
 
+        function setAuthLang(lang) {
+            currentLang = lang;
+            const t = content[lang];
+            if(lang === 'en') {
+                document.getElementById('auth-en').className = "px-4 py-1.5 rounded-md transition bg-emerald-600 text-white";
+                document.getElementById('auth-es').className = "px-4 py-1.5 rounded-md transition text-slate-400 hover:text-white";
+            } else {
+                document.getElementById('auth-es').className = "px-4 py-1.5 rounded-md transition bg-emerald-600 text-white";
+                document.getElementById('auth-en').className = "px-4 py-1.5 rounded-md transition text-slate-400 hover:text-white";
+            }
+            document.getElementById('auth-title').innerText = t.authTitle;
+            document.getElementById('auth-sub').innerText = t.authSub;
+            document.getElementById('label-email').innerText = t.labelEmail;
+            document.getElementById('label-pass').innerText = t.labelPass;
+            document.getElementById('btn-login').innerText = t.btnLogin;
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('dashboard-app').classList.remove('hidden');
+        }
+
         function changeLanguage(lang) {
             currentLang = lang;
-            const t = textData[lang];
-
+            const t = content[lang];
             if(lang === 'en') {
                 document.getElementById('btn-en').className = "px-3 py-1.5 rounded-md transition bg-emerald-600 text-white";
                 document.getElementById('btn-es').className = "px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white";
@@ -148,31 +269,39 @@
                 document.getElementById('btn-es').className = "px-3 py-1.5 rounded-md transition bg-emerald-600 text-white";
                 document.getElementById('btn-en').className = "px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white";
             }
-
             document.getElementById('nav-title').innerText = t.navTitle;
             document.getElementById('nav-sub').innerText = t.navSub;
             document.getElementById('banner-title').innerText = t.bannerTitle;
             document.getElementById('banner-desc').innerText = t.bannerDesc;
             document.getElementById('label-bal').innerText = t.labelBal;
+            document.getElementById('label-growth').innerText = t.labelGrowth;
             document.getElementById('label-dep').innerText = t.labelDep;
-            document.getElementById('label-gift').innerText = t.labelGift;
             document.getElementById('badge-dep').innerText = t.badgeDep;
+            document.getElementById('label-gift').innerText = t.labelGift;
             document.getElementById('badge-gift').innerText = t.badgeGift;
             document.getElementById('panel-title').innerText = t.panelTitle;
             document.getElementById('panel-sub').innerText = t.panelSub;
             document.getElementById('badge-status').innerText = t.badgeStatus;
             document.getElementById('btn-trade').innerText = t.btnTrade;
             document.getElementById('btn-withdraw').innerText = t.btnWithdraw;
+            document.getElementById('log-heading').innerText = t.logHeading;
+            document.getElementById('th-time').innerText = t.thTime;
+            document.getElementById('th-type').innerText = t.thType;
+            document.getElementById('th-amount').innerText = t.thAmount;
+            document.getElementById('th-status').innerText = t.thStatus;
+            document.getElementById('ledger-type-1').innerText = t.ledger1;
+            document.getElementById('ledger-type-2').innerText = t.ledger2;
+            document.getElementById('ledger-status-1').innerText = t.statusComp;
+            document.getElementById('ledger-status-2').innerText = t.statusPend;
         }
 
         function executeTrade() {
-            alert(textData[currentLang].alertTrade);
+            alert(content[currentLang].alertTrade);
         }
 
         function requestWithdrawal() {
-            alert(textData[currentLang].alertWithdraw);
+            alert(content[currentLang].alertWithdraw);
         }
     </script>
 </body>
-      </html>
-              
+</html>
