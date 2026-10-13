@@ -282,8 +282,18 @@
     // Keep the workspaces separate after every authenticated login.
     document.querySelectorAll('.customer-only').forEach(el => el.classList.toggle('hidden', state.role === 'admin'));
     document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', state.role !== 'admin'));
-    go(state.role === 'admin' ? 'admin' : 'overview');
+    // Re-apply the authenticated workspace after cloud data and dashboard rendering finish.
+    const homePage = state.role === 'admin' ? 'admin' : 'overview';
+    go(homePage);
     renderAll();
+    document.querySelectorAll('.customer-only').forEach(el => el.classList.toggle('hidden', state.role === 'admin'));
+    document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', state.role !== 'admin'));
+    document.querySelectorAll('.tabpage').forEach(el => el.classList.toggle('active', el.id === 'page-' + homePage));
+    document.querySelectorAll('[data-page]').forEach(el => el.classList.toggle('active', el.dataset.page === homePage));
+    const homeTitle = document.getElementById('pageTitle');
+    const homeSubtitle = document.getElementById('pageSubtitle');
+    if (homeTitle) homeTitle.textContent = homePage === 'admin' ? 'Admin center' : 'Market overview';
+    if (homeSubtitle) homeSubtitle.textContent = homePage === 'admin' ? 'Manage the platform, customers and funding requests.' : 'Your market desk, strategy signals and portfolio at a glance.';
     statusLine('');
   }
   async function loadCloud() {
