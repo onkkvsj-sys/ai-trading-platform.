@@ -731,7 +731,7 @@ function totalPnl(){return Number(state.realizedPnl||0)+openOrders().reduce((sum
 function approvedFunding(){return (state.requests||[]).filter(r=>String(r.status||'').toLowerCase()==='approved').reduce((sum,r)=>sum+Number(r.amount||0),0)+(state.credits||[]).filter(c=>c.credit_type==='deposit').reduce((sum,c)=>sum+Number(c.amount||0),0)}
 function earningsCredits(){return (state.credits||[]).filter(c=>c.credit_type==='earnings').reduce((sum,c)=>sum+Number(c.amount||0),0)}
 function realizedTradingEarnings(){return Number(state.realizedPnl||0)+earningsCredits()}
-function withdrawalReservedStatusesFor(w){return ['pending','approved','paid'].includes(String(w.status||'').toLowerCase())}
+function withdrawalReservedStatusesFor(w){return ['pending','approved','paid','topup_required'].includes(String(w.status||'').toLowerCase())}
 function reservedDepositWithdrawals(){return (state.withdrawals||[]).filter(withdrawalReservedStatusesFor).reduce((sum,w)=>{const note=String(w.eligibility_note||'');if(!note.startsWith('fund_source:'))return sum;const m=note.match(/deposit=([0-9.]+)/);return sum+(m?Number(m[1])||0:note.startsWith('fund_source:deposit')?Number(w.amount||0):0)},0)}
 function reservedEarningsWithdrawals(){return (state.withdrawals||[]).filter(withdrawalReservedStatusesFor).reduce((sum,w)=>{const note=String(w.eligibility_note||'');if(!note.startsWith('fund_source:'))return sum;const m=note.match(/earnings=([0-9.]+)/);return sum+(m?Number(m[1])||0:note.startsWith('fund_source:earnings')?Number(w.amount||0):0)},(state.withdrawals||[]).filter(w=>withdrawalReservedStatusesFor(w)&&!String(w.eligibility_note||'').startsWith('fund_source:')).reduce((s,w)=>s+Number(w.amount||0),0))}
 function withdrawableEarnings(){return Math.max(0,Number((realizedTradingEarnings()-reservedEarningsWithdrawals()).toFixed(2)))}
@@ -964,5 +964,5 @@ apexObserveCustomerTranslations();
 renderAll();$('roleBtn').textContent='View: '+(state.role==='admin'?'Admin':'Customer');fetchPrices();setInterval(fetchPrices,15000);
 setInterval(()=>{if(!document.hidden&&document.getElementById('page-markets')?.classList.contains('active'))renderChart()},5000);
 </script>
-<script src="./supabase-backend.js?v=20261014-live-admin-requests-6"></script>
+<script src="./supabase-backend.js?v=20261014-live-admin-requests-7"></script>
 </body></html>
