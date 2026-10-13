@@ -12,7 +12,7 @@
   let loadingCloud = false;
   let dashboardSettings={brandName:'AI Trading Bot',announcementTitle:'Platform update',announcementText:'Welcome to your customer dashboard.',announcementEnabled:false};
   function applyDashboardSettings(){
-    const brand=String(dashboardSettings.brandName||'AI Trading Bot').trim()||'AI Trading Bot';document.title=brand+' · Markets';
+    const brand=String(dashboardSettings.brandName||'AI Trading Bot').trim()||'AI Trading Bot';document.title=brand+' · Markets';const brandLabel=document.getElementById('platformBrandName');if(brandLabel)brandLabel.textContent=brand;
     const banner=document.getElementById('globalAnnouncement');
     if(banner){banner.classList.toggle('hidden',!dashboardSettings.announcementEnabled||!String(dashboardSettings.announcementText||'').trim());document.getElementById('globalAnnouncementTitle').textContent=dashboardSettings.announcementTitle||'Platform update';document.getElementById('globalAnnouncementText').textContent=dashboardSettings.announcementText||'';}
   }
@@ -500,8 +500,8 @@
     const country=document.getElementById('withdrawCountry')?.value||'Nigeria';
     const holder=document.getElementById('withdrawHolder')?.value.trim()||'Account holder will appear here';
     const raw=document.getElementById('withdrawAccount')?.value.replace(/\D/g,'')||'';
-    const bankInitials=String(bank||'BANK').split(/\\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase();
-    document.getElementById('withdrawPreviewBank').innerHTML='<span class="bank-mark" style="width:34px;height:34px;flex-basis:34px;border-radius:10px;font-size:9px">'+safe(bankInitials)+'</span><span>'+safe(bank)+'</span>';
+    const bankInfo=BANK_BRANDS[bank]||[String(bank||'BANK').split(/\\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase(),'#64748b'];
+    document.getElementById('withdrawPreviewBank').innerHTML='<span class="brand-logo" style="width:34px;height:34px;flex-basis:34px;border-radius:10px;background:'+bankInfo[1]+'">'+safe(bankInfo[0])+'</span><span>'+safe(bank)+'</span>';
     const countryCode=withdrawCountryEl?.selectedOptions?.[0]?.dataset?.code||'OTHER';
     document.getElementById('withdrawPreviewCountry').textContent=countryFlag(countryCode)+' '+country;
     document.getElementById('withdrawPreviewHolder').textContent=holder;
