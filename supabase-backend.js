@@ -68,6 +68,20 @@
   document.body.appendChild(gate);
   refreshCountrySelects();
   document.getElementById('layout').classList.add('hidden');
+  async function showVisitorWelcomeReceipt() {
+    const modal=document.getElementById('welcomeGiftModal');
+    if (!modal || localStorage.getItem('apex-welcome-visitor-shown')) return;
+    const { data } = await client.from('app_settings').select('value').eq('key','welcome_gift').maybeSingle();
+    const gift=data?.value || {amount:250,title:'Apex Demo Credit',terms:'Demo-only credit for exploring the platform. No cash value; not a deposit and not withdrawable.'};
+    document.getElementById('giftModalGiftTitle').textContent=gift.title || 'Welcome gift';
+    document.getElementById('giftModalAmount').textContent=money(gift.amount);
+    document.getElementById('giftModalTerms').textContent=gift.terms || 'Welcome to your private workspace.';
+    const close=()=>{modal.classList.add('hidden');localStorage.setItem('apex-welcome-visitor-shown','1');};
+    document.getElementById('giftModalClose').onclick=close;
+    document.getElementById('giftModalContinue').onclick=close;
+    modal.classList.remove('hidden');
+  }
+  showVisitorWelcomeReceipt().catch(()=>{});
   let authMode = 'login';
   function setAuthMode(mode) {
     authMode = mode;
@@ -297,6 +311,7 @@
     const modal=document.getElementById('welcomeGiftModal');
     if (!modal || !user || state.role !== 'customer') return;
     const key='apex-welcome-receipt-'+user.id;
+    if (localStorage.getItem('apex-welcome-visitor-shown')) { localStorage.setItem(key,'1'); return; }
     const gift=state.gift || {amount:0,title:'Welcome',terms:''};
     document.getElementById('giftModalGiftTitle').textContent=gift.title || 'Welcome gift';
     document.getElementById('giftModalAmount').textContent=money(gift.amount);
