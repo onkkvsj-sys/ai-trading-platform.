@@ -19,8 +19,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check backend JavaScript syntax
-        run: node --check supabase-backend.js
+      - name: Check backend JavaScript syntax when present
+        run: |
+          if [ -f supabase-backend.js ]; then
+            node --check supabase-backend.js
+          else
+            echo "No separate backend JavaScript file on this branch."
+          fi
       - name: Check inline browser scripts
         run: |
           node <<'NODE'
