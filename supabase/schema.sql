@@ -194,7 +194,7 @@ create trigger on_auth_user_created after insert on auth.users
 for each row execute function public.handle_new_user();
 
 insert into public.app_settings (key, value)
-values ('welcome_gift', '{"amount":250,"title":"Apex Welcome Credit","terms":"Promotional preview credit only. Not cash, a deposit, or a withdrawable balance."}'::jsonb)
+values ('welcome_gift', '{"amount":250,"title":"Apex Demo Credit","terms":"Demo-only credit for exploring the platform. No cash value; not a deposit and not withdrawable."}'::jsonb)
 on conflict (key) do nothing;
 
 alter table public.simulated_orders drop constraint if exists simulated_orders_status_check;
