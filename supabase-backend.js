@@ -496,6 +496,15 @@
         } else if(user) localStorage.setItem('apex-inbox-last-read-'+user.id,String(Date.now()));
         loadCloud();
       })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'withdrawal_requests'},payload=>{
+        const row=payload.new||{};
+        if(state.role==='admin'){
+          toastSafe('✦ New withdrawal request · '+money(row.amount)+' · awaiting review');
+          if('Notification' in window&&Notification.permission==='granted'){try{new Notification('New withdrawal request',{body:money(row.amount)+' is waiting in the Admin Center.'})}catch{}}
+        }
+        if(state.role==='customer'&&row.user_id!==user.id)return;
+        loadCloud();
+      })
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'withdrawal_requests'},payload=>{
         const row=payload.new||{};
         if(state.role==='customer'&&row.user_id!==user.id)return;
@@ -506,6 +515,29 @@
           if('Notification' in window&&Notification.permission==='granted'){try{new Notification('Withdrawal request updated',{body:row.admin_message||('Your request is now '+status+'.')})}catch{}}
         }
         loadCloud();
+      })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'topup_requests'},payload=>{
+        const row=payload.new||{};
+        if(state.role==='admin'){
+          toastSafe('✦ New funding request · '+money(row.amount)+' · awaiting review');
+          if('Notification' in window&&Notification.permission==='granted'){try{new Notification('New funding request',{body:money(row.amount)+' is waiting in the Admin Center.'})}catch{}}
+        }
+        if(state.role==='customer'&&row.user_id!==user.id)return;
+        loadCloud();
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'topup_requests'},payload=>{
+        const row=payload.new||{};
+        if(state.role==='customer'&&row.user_id!==user.id)return;
+        if(state.role==='customer')toastSafe('Funding request update: '+String(row.status||'updated')+(row.admin_note?' — '+row.admin_note:''));
+        loadCloud();
+      })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'account_credits'},payload=>{
+        const row=payload.new||{};
+        if(state.role==='customer'&&row.user_id===user.id){
+          toastSafe((row.credit_type==='deposit'?'Deposit / top-up':'Earnings')+' credit received · '+money(row.amount));
+          if('Notification' in window&&Notification.permission==='granted'){try{new Notification('Account balance updated',{body:money(row.amount)+' has been credited to your account.'})}catch{}}
+        }
+        if(state.role==='admin'||row.user_id===user.id)loadCloud();
       }).subscribe();
   }
   const clearUnread=()=>{state.unreadMessages=0;if(user)localStorage.setItem('apex-inbox-last-read-'+user.id,String(Date.now()));const badge=document.getElementById('unreadCount');if(badge){badge.textContent='0';badge.classList.add('hidden')}if(typeof renderInboxNotice==='function')renderInboxNotice()};
@@ -526,7 +558,7 @@
     set('adminLiveCustomers',customerRows.length);set('adminLiveRequests',pendingCount);
     set('adminLiveMarkets',Object.keys(state.prices||{}).filter(k=>Number(state.prices[k]?.usd)>0).length);
     set('adminLiveMessages',allMessages.length);set('adminChartCustomers',customerRows.length);
-    set('adminChartActivity',(state.activity||[]).length);set('adminChartPending',pendingRows.length);
+    set('adminChartActivity',(state.activity||[]).length);set('adminChartPending',pendingCount);
     const clock=document.getElementById('adminLiveClock');if(clock)clock.textContent=new Date().toLocaleTimeString();
     const dayKey=d=>{const x=new Date(d);return Number.isNaN(x.getTime())?'':x.toISOString().slice(0,10)};
     const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return dayKey(d)});
