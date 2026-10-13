@@ -417,6 +417,21 @@ body{background:radial-gradient(ellipse at 4% 2%,#40172b 0,transparent 26%),radi
     animation: none !important;
     transition: none !important;
   }
+  /* Prevent touch-screen hover/press transforms from nudging the layout on both dashboards. */
+  @media (hover: none) {
+    .btn:hover,
+    .asset-row:hover,
+    #sidebar .navitem:active,
+    .admin-request-jump:hover,
+    .admin-request-jump:focus-visible,
+    .admin-message-jump:hover,
+    .admin-message-jump:focus-visible,
+    .admin-customer-jump:hover,
+    .admin-customer-jump:focus-visible {
+      transform: none !important;
+      filter: none !important;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       scroll-behavior: auto !important;
