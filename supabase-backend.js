@@ -10,6 +10,14 @@
   let profile = null;
   let cloudReady = false;
   let loadingCloud = false;
+  let dashboardSettings={brandName:'AI Trading Bot',announcementTitle:'Platform update',announcementText:'Welcome to your customer dashboard.',announcementEnabled:false};
+  function applyDashboardSettings(){
+    const brand=String(dashboardSettings.brandName||'AI Trading Bot').trim()||'AI Trading Bot';document.title=brand+' · Markets';
+    const banner=document.getElementById('globalAnnouncement');
+    if(banner){banner.classList.toggle('hidden',!dashboardSettings.announcementEnabled||!String(dashboardSettings.announcementText||'').trim());document.getElementById('globalAnnouncementTitle').textContent=dashboardSettings.announcementTitle||'Platform update';document.getElementById('globalAnnouncementText').textContent=dashboardSettings.announcementText||'';}
+  }
+  function fillDashboardSettingsForm(){if(!document.getElementById('dashboardSettingsForm'))return;document.getElementById('dashboardBrandName').value=dashboardSettings.brandName||'AI Trading Bot';document.getElementById('dashboardAnnouncementTitle').value=dashboardSettings.announcementTitle||'Platform update';document.getElementById('dashboardAnnouncementText').value=dashboardSettings.announcementText||'';document.getElementById('dashboardAnnouncementEnabled').checked=!!dashboardSettings.announcementEnabled;}
+
   const originalLog = log;
   const originalSave = save;
   const originalRenderFunding = renderFunding;
@@ -210,8 +218,9 @@
     if (!user || loadingCloud) return;
     loadingCloud = true;
     try {
-      const [giftRes, requestsRes, messagesRes, ordersRes, activityRes, profilesRes, withdrawalsRes] = await Promise.all([
+      const [giftRes, dashboardRes, requestsRes, messagesRes, ordersRes, activityRes, profilesRes, withdrawalsRes] = await Promise.all([
         client.from('app_settings').select('value').eq('key','welcome_gift').maybeSingle(),
+        client.from('app_settings').select('value').eq('key','dashboard_settings').maybeSingle(),
         client.from('topup_requests').select('*').order('created_at',{ascending:true}),
         client.from('messages').select('*').order('created_at',{ascending:true}),
         client.from('simulated_orders').select('*').order('created_at',{ascending:true}),
@@ -219,8 +228,10 @@
         client.from('profiles').select('id,display_name,role,created_at,country_code,avatar_path,is_blocked,blocked_at,blocked_reason,deleted_at'),
         client.from('withdrawal_requests').select('*').order('created_at',{ascending:true})
       ]);
-      for (const r of [giftRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes,withdrawalsRes]) if (r.error) throw r.error;
+      for (const r of [giftRes,dashboardRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes,withdrawalsRes]) if (r.error) throw r.error;
       if (giftRes.data?.value) state.gift = giftRes.data.value;
+      if (dashboardRes.data?.value) dashboardSettings={...dashboardSettings,...dashboardRes.data.value};
+      applyDashboardSettings();fillDashboardSettingsForm();
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
       state.withdrawals = (withdrawalsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),currency:r.currency,bank_country:r.bank_country,bank_name:r.bank_name,account_holder:r.account_holder,account_number:r.account_number,status:r.status,eligibility_note:r.eligibility_note,time:r.created_at,reviewedAt:r.reviewed_at}));
       state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || '',is_blocked:!!p.is_blocked,blocked_at:p.blocked_at||null,blocked_reason:p.blocked_reason||'',deleted_at:p.deleted_at||null}));
@@ -604,6 +615,16 @@
     state.gift=value; log('Welcome gift updated','Global preview gift settings updated');
     renderAll(); toastSafe('Welcome gift settings saved for all accounts.');
   };
+  document.getElementById('dashboardSettingsForm').onsubmit=async e=>{
+    e.preventDefault();if(state.role!=='admin')return toastSafe('Administrator access required.');
+    const value={brandName:document.getElementById('dashboardBrandName').value.trim().slice(0,70)||'AI Trading Bot',announcementTitle:document.getElementById('dashboardAnnouncementTitle').value.trim().slice(0,90)||'Platform update',announcementText:document.getElementById('dashboardAnnouncementText').value.trim().slice(0,500),announcementEnabled:document.getElementById('dashboardAnnouncementEnabled').checked};
+    const status=document.getElementById('dashboardSettingsStatus');if(status)status.textContent='Publishing…';
+    const {error}=await client.from('app_settings').upsert({key:'dashboard_settings',value,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(error){if(status)status.textContent='Could not save';return toastSafe('Dashboard settings could not be saved: '+error.message);}
+    dashboardSettings=value;applyDashboardSettings();fillDashboardSettingsForm();if(status)status.textContent='Published to all customer accounts';log('Global dashboard settings updated','Shared brand and customer announcement published');toastSafe('Saved. Customer accounts will receive these shared settings.');
+  };
+  async function refreshSharedDashboardSettings(){if(!user||state.role==='admin')return;const {data,error}=await client.from('app_settings').select('value').eq('key','dashboard_settings').maybeSingle();if(error)return;if(data?.value){dashboardSettings={...dashboardSettings,...data.value};applyDashboardSettings();}}
+  window.addEventListener('focus',refreshSharedDashboardSettings);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshSharedDashboardSettings();});setInterval(refreshSharedDashboardSettings,30000);
   // Only real administrator profiles may open the management page.
   const originalGo = go;
   go = function(page) {
