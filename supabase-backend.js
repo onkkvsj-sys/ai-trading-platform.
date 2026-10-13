@@ -163,6 +163,10 @@
       profile = created;
     }
     state.role = profile.role === 'admin' ? 'admin' : 'customer';
+    window.apexCurrentRole = state.role;
+    const languageControl = document.getElementById('languageSelect');
+    if (languageControl) languageControl.classList.toggle('hidden', state.role === 'admin');
+    if (state.role === 'admin' && window.apexSetLanguage) window.apexSetLanguage('en');
     document.getElementById('roleBtn').textContent = 'Account: ' + state.role;
     setupProfileUI();
     document.getElementById('roleBtn').disabled = true;
@@ -431,7 +435,13 @@
       toastSafe('That page belongs to the customer workspace.');
       return;
     }
-    return originalGo(page);
+    const result = originalGo(page);
+    const languageControl = document.getElementById('languageSelect');
+    if (languageControl) languageControl.classList.toggle('hidden', state.role === 'admin');
+    window.apexCurrentRole = state.role;
+    const backButton = document.getElementById('pageBackBtn');
+    if (backButton) backButton.style.visibility = (page === 'overview' || page === 'admin') ? 'hidden' : 'visible';
+    return result;
   };
   document.getElementById('roleBtn').onclick = () => toastSafe('Account role is verified by Supabase; it cannot be switched from this button.');
   document.getElementById('switchCustomer').onclick = () => toastSafe('Use a separate customer account to preview the customer view.');
