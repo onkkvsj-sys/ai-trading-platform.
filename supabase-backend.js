@@ -10,13 +10,13 @@
   let profile = null;
   let cloudReady = false;
   let loadingCloud = false;
-  let dashboardSettings={brandName:'AI Trading Bot',overviewTitle:'Market overview',overviewSubtitle:'Your market desk, strategy signals and portfolio at a glance.',announcementTitle:'Platform update',announcementText:'Welcome to your customer dashboard.',announcementEnabled:false};
+  let dashboardSettings={brandName:'AI Trading Bot',overviewTitle:'Market overview',overviewSubtitle:'Your market desk, strategy signals and portfolio at a glance.',announcementTitle:'Platform update',announcementText:'Welcome to your customer dashboard.',announcementEnabled:false,confirmationTitle:'Confirm your email to finish setup',confirmationMessage:'Your account has been created. Open the confirmation email we sent you and tap Confirm email before signing in. If you do not see it, check your spam or junk folder.'};
   function applyDashboardSettings(){
     const brand=String(dashboardSettings.brandName||'AI Trading Bot').trim()||'AI Trading Bot';document.title=brand+' · Markets';const brandLabel=document.getElementById('platformBrandName');if(brandLabel)brandLabel.textContent=brand;const overviewTitle=String(dashboardSettings.overviewTitle||'Market overview');const overviewSubtitle=String(dashboardSettings.overviewSubtitle||'Your market desk, strategy signals and portfolio at a glance.');if(typeof titles!=='undefined'&&titles.overview){titles.overview[0]=overviewTitle;titles.overview[1]=overviewSubtitle;}if(document.getElementById('page-overview')?.classList.contains('active')){const t=document.getElementById('pageTitle'),sub=document.getElementById('pageSubtitle');if(t)t.textContent=overviewTitle;if(sub)sub.textContent=overviewSubtitle;}
     const banner=document.getElementById('globalAnnouncement');
-    if(banner){banner.classList.toggle('hidden',!dashboardSettings.announcementEnabled||!String(dashboardSettings.announcementText||'').trim());document.getElementById('globalAnnouncementTitle').textContent=dashboardSettings.announcementTitle||'Platform update';document.getElementById('globalAnnouncementText').textContent=dashboardSettings.announcementText||'';}
+    if(banner){banner.classList.toggle('hidden',!dashboardSettings.announcementEnabled||!String(dashboardSettings.announcementText||'').trim());document.getElementById('globalAnnouncementTitle').textContent=dashboardSettings.announcementTitle||'Platform update';document.getElementById('globalAnnouncementText').textContent=dashboardSettings.announcementText||'';}renderAuthConfirmationCard();
   }
-  function fillDashboardSettingsForm(){if(!document.getElementById('dashboardSettingsForm'))return;document.getElementById('dashboardBrandName').value=dashboardSettings.brandName||'AI Trading Bot';document.getElementById('dashboardOverviewTitle').value=dashboardSettings.overviewTitle||'Market overview';document.getElementById('dashboardOverviewSubtitle').value=dashboardSettings.overviewSubtitle||'Your market desk, strategy signals and portfolio at a glance.';document.getElementById('dashboardAnnouncementTitle').value=dashboardSettings.announcementTitle||'Platform update';document.getElementById('dashboardAnnouncementText').value=dashboardSettings.announcementText||'';document.getElementById('dashboardAnnouncementEnabled').checked=!!dashboardSettings.announcementEnabled;}
+  function fillDashboardSettingsForm(){if(!document.getElementById('dashboardSettingsForm'))return;document.getElementById('dashboardBrandName').value=dashboardSettings.brandName||'AI Trading Bot';document.getElementById('dashboardOverviewTitle').value=dashboardSettings.overviewTitle||'Market overview';document.getElementById('dashboardOverviewSubtitle').value=dashboardSettings.overviewSubtitle||'Your market desk, strategy signals and portfolio at a glance.';document.getElementById('dashboardAnnouncementTitle').value=dashboardSettings.announcementTitle||'Platform update';document.getElementById('dashboardAnnouncementText').value=dashboardSettings.announcementText||'';document.getElementById('dashboardAnnouncementEnabled').checked=!!dashboardSettings.announcementEnabled;document.getElementById('dashboardConfirmationTitle').value=dashboardSettings.confirmationTitle||'Confirm your email to finish setup';document.getElementById('dashboardConfirmationMessage').value=dashboardSettings.confirmationMessage||'Your account has been created. Open the confirmation email we sent you and tap Confirm email before signing in. If you do not see it, check your spam or junk folder.';}
 
   const originalLog = log;
   const originalSave = save;
@@ -53,6 +53,12 @@
     #authGate .authSwitch{border:1px solid #2c4057;border-radius:10px;padding:10px 12px;flex:1;font-size:13px}
     #authGate .authSwitch.active{background:#1b3442;color:#7fe8c8;border-color:#3b6b68}
     #authGate .authSubmit{background:linear-gradient(120deg,#24bd91,#43e0b0);color:#05251e;border:0;border-radius:10px;padding:12px;width:100%;font-weight:800}
+    #authConfirmationCard{display:none;margin-top:18px;padding:18px;border:1px solid #3e8d7c;border-radius:18px;background:radial-gradient(circle at 100% 0%,#1c625533,transparent 45%),linear-gradient(145deg,#112f32,#122238);box-shadow:0 12px 36px #0003}
+    #authConfirmationCard.visible{display:block;animation:authConfirmIn .35s ease-out both}
+    #authConfirmationCard .confirm-mark{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#43e0b0,#7cbaff);color:#08251f;font-size:21px;font-weight:900;box-shadow:0 7px 24px #43e0b033}
+    #authConfirmationCard .confirm-action{border:1px solid #3b8178;background:#173e3c;color:#9cf3d8;border-radius:11px;padding:10px 12px;font-weight:750;font-size:12px}
+    #authConfirmationCard .confirm-secondary{border:1px solid #2b4056;background:#152337;color:#d9e7f4;border-radius:11px;padding:10px 12px;font-weight:700;font-size:12px}
+    @keyframes authConfirmIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   `;
   document.head.appendChild(css);
   const gate = document.createElement('div');
@@ -70,7 +76,7 @@
         <button id="authSubmit" class="authSubmit" type="submit">Sign in securely</button>
       </form>
       <button id="authReset" class="muted text-xs underline mt-4" type="button">Forgot password?</button>
-      <p id="authStatus" class="muted text-xs leading-relaxed mt-4" aria-live="polite"></p>
+      <p id="authStatus" class="muted text-xs leading-relaxed mt-4" aria-live="polite"></p><section id="authConfirmationCard" aria-live="polite"><div class="flex items-start gap-3"><div class="confirm-mark">✓</div><div class="min-w-0 flex-1"><div class="text-[10px] tracking-[.2em] font-bold" style="color:#7ce8c7">ACCOUNT SETUP</div><h2 id="authConfirmationTitle" class="font-bold text-lg mt-1">Confirm your email to finish setup</h2><p id="authConfirmationMessage" class="muted text-sm leading-relaxed mt-2"></p><div id="authConfirmationEmail" class="mt-3 rounded-xl p-3 text-sm break-all" style="background:#081824;border:1px solid #294457;color:#e1f6ff"></div><div class="flex flex-wrap gap-2 mt-4"><button id="authResendConfirmation" class="confirm-action" type="button">Resend confirmation email</button><button id="authConfirmationSignIn" class="confirm-secondary" type="button">I confirmed — sign in</button></div><p id="authConfirmationStatus" class="text-xs mt-3" role="status" style="color:#9be8d1"></p></div></div></section>
       <p class="muted text-[11px] leading-relaxed mt-5">Orders placed in this workspace are recorded on this platform and are not sent to an exchange. Never share your password or bank details in messages.</p>
     </div>`;
   document.body.appendChild(gate);
@@ -133,7 +139,7 @@
         if (error) throw error;
         localStorage.setItem('apex-new-account-pending-email',email.toLowerCase());
         if (data.session) await activate(data.session.user);
-        else statusLine('Account created successfully! Check your email to confirm your account. Your welcome gift celebration will appear after you sign in.');
+        else showAuthConfirmationCard(email);
       } else {
         const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -147,6 +153,46 @@
     if (!email) return statusLine('Enter your email address first.', true);
     const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
     statusLine(error ? error.message : 'If this email is registered, a password-reset link has been sent.');
+  };
+  function renderAuthConfirmationCard(email) {
+    const card=document.getElementById('authConfirmationCard');
+    if(!card)return;
+    const title=document.getElementById('authConfirmationTitle');
+    const message=document.getElementById('authConfirmationMessage');
+    if(title)title.textContent=dashboardSettings.confirmationTitle||'Confirm your email to finish setup';
+    if(message)message.textContent=dashboardSettings.confirmationMessage||'Your account has been created. Open the confirmation email we sent you and tap Confirm email before signing in. If you do not see it, check your spam or junk folder.';
+    const stored=email||localStorage.getItem('apex-new-account-pending-email')||'';
+    const emailEl=document.getElementById('authConfirmationEmail');
+    if(emailEl)emailEl.textContent=stored?'Confirmation email sent to: '+stored:'Check the inbox for the email address you used to register.';
+  }
+  function showAuthConfirmationCard(email) {
+    const card=document.getElementById('authConfirmationCard');
+    if(!card)return;
+    renderAuthConfirmationCard(email);
+    card.classList.add('visible');
+    const status=document.getElementById('authConfirmationStatus');
+    if(status)status.textContent='Account created successfully. Your account will be ready after email confirmation.';
+    statusLine('');
+  }
+  document.getElementById('authResendConfirmation').onclick=async()=>{
+    const email=localStorage.getItem('apex-new-account-pending-email')||document.getElementById('authEmail').value.trim();
+    const status=document.getElementById('authConfirmationStatus');
+    if(!email){if(status)status.textContent='Enter the email address you used to create your account.';return;}
+    const button=document.getElementById('authResendConfirmation');button.disabled=true;button.textContent='Sending…';
+    try{
+      const {error}=await client.auth.resend({type:'signup',email,options:{emailRedirectTo:location.origin+location.pathname}});
+      if(error)throw error;
+      if(status)status.textContent='Confirmation email sent. Check your inbox and spam/junk folder.';
+    }catch(err){if(status)status.textContent=err.message||'Could not resend the confirmation email. Please try again.';}
+    finally{button.disabled=false;button.textContent='Resend confirmation email';}
+  };
+  document.getElementById('authConfirmationSignIn').onclick=()=>{
+    setAuthMode('login');
+    const email=localStorage.getItem('apex-new-account-pending-email')||'';
+    if(email)document.getElementById('authEmail').value=email;
+    document.getElementById('authPassword').focus();
+    const status=document.getElementById('authConfirmationStatus');
+    if(status)status.textContent='After confirming your email, enter your password and sign in.';
   };
   function toastSafe(msg) { if (typeof toast === 'function') toast(msg); }
   async function activate(nextUser) {
@@ -695,7 +741,7 @@
   };
   document.getElementById('dashboardSettingsForm').onsubmit=async e=>{
     e.preventDefault();if(state.role!=='admin')return toastSafe('Administrator access required.');
-    const value={brandName:document.getElementById('dashboardBrandName').value.trim().slice(0,70)||'AI Trading Bot',overviewTitle:document.getElementById('dashboardOverviewTitle').value.trim().slice(0,90)||'Market overview',overviewSubtitle:document.getElementById('dashboardOverviewSubtitle').value.trim().slice(0,180)||'Your market desk, strategy signals and portfolio at a glance.',announcementTitle:document.getElementById('dashboardAnnouncementTitle').value.trim().slice(0,90)||'Platform update',announcementText:document.getElementById('dashboardAnnouncementText').value.trim().slice(0,500),announcementEnabled:document.getElementById('dashboardAnnouncementEnabled').checked};
+    const value={brandName:document.getElementById('dashboardBrandName').value.trim().slice(0,70)||'AI Trading Bot',overviewTitle:document.getElementById('dashboardOverviewTitle').value.trim().slice(0,90)||'Market overview',overviewSubtitle:document.getElementById('dashboardOverviewSubtitle').value.trim().slice(0,180)||'Your market desk, strategy signals and portfolio at a glance.',announcementTitle:document.getElementById('dashboardAnnouncementTitle').value.trim().slice(0,90)||'Platform update',announcementText:document.getElementById('dashboardAnnouncementText').value.trim().slice(0,500),announcementEnabled:document.getElementById('dashboardAnnouncementEnabled').checked,confirmationTitle:document.getElementById('dashboardConfirmationTitle').value.trim().slice(0,90)||'Confirm your email to finish setup',confirmationMessage:document.getElementById('dashboardConfirmationMessage').value.trim().slice(0,500)||'Your account has been created. Open the confirmation email we sent you and tap Confirm email before signing in. If you do not see it, check your spam or junk folder.'};
     const status=document.getElementById('dashboardSettingsStatus');if(status)status.textContent='Publishing…';
     const {error}=await client.from('app_settings').upsert({key:'dashboard_settings',value,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
     if(error){if(status)status.textContent='Could not save';return toastSafe('Dashboard settings could not be saved: '+error.message);}
