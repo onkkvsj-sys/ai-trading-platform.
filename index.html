@@ -4,7 +4,41 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Apex Terminal — Private AI Trading</title>
 <meta name="theme-color" content="#08111f">
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com">
+/* Keep every visible navigation control clickable and respect the signed-in workspace role. */
+(function(){
+ const allowedForRole = page => {
+   const role = window.apexCurrentRole || 'customer';
+   if(role === 'admin') return ['admin','messages','profile'].includes(page);
+   return ['overview','markets','trade','funding','messages','history','profile'].includes(page);
+ };
+ const originalGoForRole = go;
+ go = function(page){
+   if(!allowedForRole(page)){
+     const role = window.apexCurrentRole || 'customer';
+     page = role === 'admin' ? 'admin' : 'overview';
+     if(typeof toast === 'function') toast('That section is not available for this account.');
+   }
+   return originalGoForRole(page);
+ };
+ document.querySelectorAll('#sidebar [data-page]').forEach(button=>{
+   button.type='button';
+   button.addEventListener('click', event=>{
+     event.preventDefault();
+     event.stopPropagation();
+     if(!button.classList.contains('hidden')) go(button.dataset.page);
+   });
+ });
+ const syncWorkspaceNavigation = () => {
+   const role=window.apexCurrentRole;
+   if(!role) return;
+   document.querySelectorAll('.customer-only').forEach(el=>el.classList.toggle('hidden',role==='admin'));
+   document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden',role!=='admin'));
+ };
+ syncWorkspaceNavigation();
+ document.addEventListener('apex:role-ready',syncWorkspaceNavigation);
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -139,6 +173,14 @@ body{background:radial-gradient(ellipse at 78% -15%,#263247 0,transparent 38%),l
   }
   #sidebar .navitem:hover{border-color:#64738a;color:#f1f4f8}
   #sidebar .navitem:active{transform:scale(.98)}
+}
+
+/* Role visibility must win over the mobile button display rule. */
+@media(max-width:800px){
+  #sidebar .navitem.hidden,
+  #sidebar .customer-only.hidden,
+  #sidebar .admin-only.hidden{display:none!important}
+  #sidebar .navitem:not(.hidden){display:inline-flex!important}
 }
 </style></head>
 <body>
