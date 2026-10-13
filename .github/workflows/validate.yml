@@ -1,0 +1,47 @@
+name: Validate frontend
+on:
+  push:
+    branches: [main, feature/transparent-trading-platform]
+  pull_request:
+    branches: [main, feature/transparent-trading-platform]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check backend JavaScript syntax when present
+        run: |
+          if [ -f supabase-backend.js ]; then
+            node --check supabase-backend.js
+          else
+            echo "No separate backend JavaScript file on this branch."
+          fi
+      - name: Check inline browser scripts
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+            .map(match => match[1])
+            .filter(script => script.trim());
+          if (!scripts.length) throw new Error('No inline scripts found in index.html');
+          scripts.forEach((script, index) => {
+            try {
+              new Function(script);
+            } catch (error) {
+              console.error('Inline script ' + (index + 1) + ' failed syntax validation');
+              throw error;
+            }
+          });
+          console.log('Validated ' + scripts.length + ' inline script(s).');
+          NODE
