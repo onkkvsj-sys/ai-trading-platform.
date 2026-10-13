@@ -1,316 +1,98 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Apex Global Capital | Institutional AI Trading Terminal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Inter', sans-serif; }</style>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
-
-    <!-- ================= 1. PREMIUM LANDING PAGE ================= -->
-    <div id="landing-screen" class="min-h-screen flex flex-col justify-between">
-        <header class="border-b border-slate-900 px-6 py-4 flex justify-between items-center max-w-7xl w-full mx-auto">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-lg text-slate-950 shadow-lg shadow-emerald-500/20">
-                    AI
-                </div>
-                <span class="font-bold text-lg tracking-wide">Apex Global Capital</span>
-            </div>
-            <div class="flex items-center space-x-4">
-                <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-800 text-xs font-medium">
-                    <button onclick="setGlobalLang('en')" id="land-en" class="px-3 py-1 rounded-md transition bg-emerald-600 text-white">EN</button>
-                    <button onclick="setGlobalLang('es')" id="land-es" class="px-3 py-1 rounded-md transition text-slate-400 hover:text-white">ES</button>
-                </div>
-                <button onclick="openModal('login')" id="nav-signin" class="text-xs font-medium text-slate-300 hover:text-white transition">Sign In</button>
-                <button onclick="openModal('register')" id="nav-getstarted" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-lg shadow-emerald-600/20">Start Trading</button>
-            </div>
-        </header>
-
-        <main class="max-w-5xl mx-auto px-6 py-12 text-center space-y-8 my-auto">
-            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span id="hero-badge">Institutional High-Frequency AI Protocol</span>
-            </div>
-            <h1 id="hero-title" class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight">
-                Automated Wealth Through <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Advanced AI Arbitrage</span>
-            </h1>
-            <p id="hero-desc" class="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-                Experience consistent daily profits backed by secure institutional algorithms. Register today, claim your welcome gift capital, and let our AI trade for you 24/7.
-            </p>
-            <div class="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-                <button onclick="openModal('register')" id="btn-start-trading" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-8 py-4 rounded-xl transition shadow-xl shadow-emerald-600/30 text-sm">
-                    Start Trading Now
-                </button>
-                <button onclick="openModal('login')" id="btn-access-terminal" class="bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold px-8 py-4 rounded-xl transition border border-slate-800 text-sm">
-                    Access Terminal
-                </button>
-            </div>
-        </main>
-
-        <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
-            &copy; 2026 Apex Global Capital. Secure Encrypted Node.
-        </footer>
-    </div>
-
-    <!-- ================= 2. AUTHENTICATION MODAL ================= -->
-    <div id="auth-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 relative">
-            <button onclick="closeModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white">&times;</button>
-            <div class="text-center space-y-2">
-                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 mx-auto flex items-center justify-center font-bold text-xl text-slate-950">AI</div>
-                <h2 id="modal-title" class="text-2xl font-bold tracking-tight">Create Your Account</h2>
-                <p id="modal-sub" class="text-xs text-slate-400">Enter your email to claim your welcome gift.</p>
-            </div>
-            <form onsubmit="handleAuth(event)" class="space-y-4">
-                <div>
-                    <label id="lbl-email" class="block text-xs font-semibold text-slate-400 uppercase mb-1">Email Address</label>
-                    <input type="email" id="user-email" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition" placeholder="name@example.com">
-                </div>
-                <div>
-                    <label id="lbl-pass" class="block text-xs font-semibold text-slate-400 uppercase mb-1">Password</label>
-                    <input type="password" id="user-pass" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition" placeholder="••••••••">
-                </div>
-                <button type="submit" id="btn-submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 rounded-xl transition shadow-lg text-sm">
-                    Continue to Dashboard
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- ================= 3. TRADING TERMINAL DASHBOARD ================= -->
-    <div id="dashboard-screen" class="hidden flex-1 flex flex-col min-h-screen">
-        <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-lg text-slate-950">AI</div>
-                <div>
-                    <h1 id="dash-title" class="font-bold text-lg tracking-wide">Apex Global Capital</h1>
-                    <p id="dash-sub" class="text-xs text-slate-400">Institutional Algorithmic System</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-3">
-                <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700 text-xs font-medium">
-                    <button onclick="setGlobalLang('en')" id="dash-en" class="px-3 py-1.5 rounded-md transition bg-emerald-600 text-white">EN</button>
-                    <button onclick="setGlobalLang('es')" id="dash-es" class="px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white">ES</button>
-                </div>
-                <button onclick="location.reload()" id="btn-logout" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition">Logout</button>
-            </div>
-        </header>
-
-        <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
-            <!-- Simulated Live Market Ticker -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap justify-between items-center gap-4 text-xs font-mono">
-                <div class="flex items-center space-x-3">
-                    <span class="text-emerald-400 font-bold">BTC/USDT</span>
-                    <span id="ticker-btc" class="text-slate-200">63,258.19</span>
-                    <span class="text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">+3.65%</span>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="text-cyan-400 font-bold">ETH/USDT</span>
-                    <span id="ticker-eth" class="text-slate-200">3,339.25</span>
-                    <span class="text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">+2.35%</span>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="text-purple-400 font-bold">AI-ARBITRAGE INDEX</span>
-                    <span class="text-slate-200">99.89% WIN</span>
-                    <span class="text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">Active 24/7</span>
-                </div>
-            </div>
-
-            <!-- System Notice Banner -->
-            <div id="system-banner" class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex items-start space-x-4 text-amber-200">
-                <svg class="w-6 h-6 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <div>
-                    <h4 id="banner-title" class="font-semibold text-sm">System Notice: Active Trading Cycle Required</h4>
-                    <p id="banner-desc" class="text-xs text-amber-300/80 mt-1">Your verification deposit has been credited. Per platform security compliance, active AI trading must be executed before final payout release.</p>
-                </div>
-            </div>
-
-            <!-- Portfolio Cards Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <p id="label-bal" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Portfolio Balance</p>
-                    <h2 class="text-3xl font-bold mt-2 text-emerald-400">$6,000.00</h2>
-                    <span id="label-growth" class="inline-block mt-4 text-xs text-emerald-500">+24.8% Live Arbitrage Yield</span>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <p id="label-dep" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Verification Deposit</p>
-                    <h2 class="text-3xl font-bold mt-2 text-cyan-400">$1,000.00</h2>
-                    <span id="badge-dep" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Active Trade Required</span>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <p id="label-gift" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Welcome Gift Capital</p>
-                    <h2 class="text-3xl font-bold mt-2 text-purple-400">$5,000.00</h2>
-                    <span id="badge-gift" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Generated Profit Cleared</span>
-                </div>
-            </div>
-
-            <!-- Control Panel -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-                <div class="flex justify-between items-center border-b border-slate-800 pb-4">
-                    <div>
-                        <h3 id="panel-title" class="font-bold text-lg">AI Automated Execution Bot</h3>
-                        <p id="panel-sub" class="text-xs text-slate-400">High-frequency institutional micro-arbitrage protocol</p>
-                    </div>
-                    <div class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span id="badge-status">LIVE TRADING ACTIVE</span>
-                    </div>
-                </div>
-                <div class="flex flex-col sm:flex-row gap-4">
-                    <button onclick="executeTrade()" id="btn-trade" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition text-sm shadow-lg shadow-emerald-600/20">
-                        Execute Active Cycle ($1,000 Deposit)
-                    </button>
-                    <button onclick="requestWithdrawal()" id="btn-withdraw" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 px-6 rounded-xl transition border border-slate-700 text-sm">
-                        Request Full Payout Withdrawal
-                    </button>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Script Logic -->
-    <script>
-        const translations = {
-            en: {
-                heroBadge: "Institutional High-Frequency AI Protocol",
-                heroTitle: "Automated Wealth Through Advanced AI Arbitrage",
-                heroDesc: "Experience consistent daily profits backed by secure institutional algorithms. Register today, claim your welcome gift capital, and let our AI trade for you 24/7.",
-                btnStart: "Start Trading Now",
-                btnAccess: "Access Terminal",
-                navSignin: "Sign In",
-                navGetStarted: "Start Trading",
-                modalReg: "Create Your Account",
-                modalLog: "Sign In to Terminal",
-                modalSub: "Enter your email to claim your welcome gift.",
-                lblEmail: "Email Address",
-                lblPass: "Password",
-                btnSubmit: "Continue to Dashboard",
-                dashTitle: "Apex Global Capital",
-                dashSub: "Institutional Algorithmic System",
-                bannerTitle: "System Notice: Active Trading Cycle Required",
-                bannerDesc: "Your verification deposit has been credited. Per platform security compliance, active AI trading must be executed before final payout release.",
-                labelBal: "Total Portfolio Balance",
-                labelGrowth: "+24.8% Live Arbitrage Yield",
-                labelDep: "Verification Deposit",
-                badgeDep: "Active Trade Required",
-                labelGift: "Welcome Gift Capital",
-                badgeGift: "Generated Profit Cleared",
-                panelTitle: "AI Automated Execution Bot",
-                panelSub: "High-frequency institutional micro-arbitrage protocol",
-                badgeStatus: "LIVE TRADING ACTIVE",
-                btnTrade: "Execute Active Cycle ($1,000 Deposit)",
-                btnWithdraw: "Request Full Payout Withdrawal",
-                logout: "Logout",
-                alertTrade: "System Notice: Active trading cycle initiated. Your verification deposit is participating in live market micro-trades.",
-                alertWithdraw: "Withdrawal Notice: System requires active trading cycle completion on verification deposit prior to total payout release."
-            },
-            es: {
-                heroBadge: "Protocolo de IA Institucional de Alta Frecuencia",
-                heroTitle: "Riqueza Automatizada Mediante Arbitraje de IA Avanzado",
-                heroDesc: "Experimente ganancias diarias constantes respaldadas por algoritmos institucionales seguros. Regístrese hoy, reclame su capital de regalo y deje que nuestra IA opere por usted 24/7.",
-                btnStart: "Comenzar a Operar",
-                btnAccess: "Acceder al Terminal",
-                navSignin: "Iniciar Sesión",
-                navGetStarted: "Comenzar",
-                modalReg: "Cree Su Cuenta",
-                modalLog: "Iniciar Sesión",
-                modalSub: "Ingrese su correo para reclamar su regalo de bienvenida.",
-                lblEmail: "Correo Electrónico",
-                lblPass: "Contraseña",
-                btnSubmit: "Continuar al Panel",
-                dashTitle: "Apex Global Capital",
-                dashSub: "Sistema Algorítmico Institucional",
-                bannerTitle: "Aviso del Sistema: Ciclo de Trading Activo Requerido",
-                bannerDesc: "Su depósito de verificación ha sido acreditado. Según las normas de seguridad de la plataforma, se debe ejecutar el trading de IA activo antes de liberar el pago final.",
-                labelBal: "Saldo Total del Portafolio",
-                labelGrowth: "+24.8% Rendimiento de Arbitraje en Vivo",
-                labelDep: "Depósito de Verificación",
-                badgeDep: "Trading Activo Requerido",
-                labelGift: "Capital de Regalo de Bienvenida",
-                badgeGift: "Ganancia Generada Liquidada",
-                panelTitle: "Bot de Ejecución Automatizada por IA",
-                panelSub: "Protocolo de microarbitraje institucional de alta frecuencia",
-                badgeStatus: "TRADING EN VIVO ACTIVO",
-                btnTrade: "Ejecutar Ciclo Activo (Depósito de $1,000)",
-                btnWithdraw: "Solicitar Retiro de Saldo Total",
-                logout: "Cerrar Sesión",
-                alertTrade: "Aviso del Sistema: Ciclo de trading activo iniciado. Su depósito de verificación participa en microoperaciones de mercado en vivo.",
-                alertWithdraw: "Aviso de Retiro: El sistema requiere completar el ciclo de trading activo en el depósito de verificación antes de liberar el pago total."
-            }
-        };
-
-        let lang = 'en';
-        let mode = 'register';
-
-        function setGlobalLang(selectedLang) {
-            lang = selectedLang;
-            const t = translations[lang];
-
-            document.getElementById('land-en').className = lang === 'en' ? "px-3 py-1 rounded-md transition bg-emerald-600 text-white" : "px-3 py-1 rounded-md transition text-slate-400 hover:text-white";
-            document.getElementById('land-es').className = lang === 'es' ? "px-3 py-1 rounded-md transition bg-emerald-600 text-white" : "px-3 py-1 rounded-md transition text-slate-400 hover:text-white";
-            document.getElementById('dash-en').className = lang === 'en' ? "px-3 py-1.5 rounded-md transition bg-emerald-600 text-white" : "px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white";
-            document.getElementById('dash-es').className = lang === 'es' ? "px-3 py-1.5 rounded-md transition bg-emerald-600 text-white" : "px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white";
-
-            document.getElementById('hero-badge').innerText = t.heroBadge;
-            document.getElementById('hero-title').innerHTML = lang === 'es' ? 'Riqueza Automatizada Mediante <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Arbitraje de IA Avanzado</span>' : 'Automated Wealth Through <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Advanced AI Arbitrage</span>';
-            document.getElementById('hero-desc').innerText = t.heroDesc;
-            document.getElementById('btn-start-trading').innerText = t.btnStart;
-            document.getElementById('btn-access-terminal').innerText = t.btnAccess;
-            document.getElementById('nav-signin').innerText = t.navSignin;
-            document.getElementById('nav-getstarted').innerText = t.navGetStarted;
-
-            document.getElementById('modal-title').innerText = mode === 'register' ? t.modalReg : t.modalLog;
-            document.getElementById('modal-sub').innerText = t.modalSub;
-            document.getElementById('lbl-email').innerText = t.lblEmail;
-            document.getElementById('lbl-pass').innerText = t.lblPass;
-            document.getElementById('btn-submit').innerText = t.btnSubmit;
-
-            document.getElementById('dash-title').innerText = t.dashTitle;
-            document.getElementById('dash-sub').innerText = t.dashSub;
-            document.getElementById('banner-title').innerText = t.bannerTitle;
-            document.getElementById('banner-desc').innerText = t.bannerDesc;
-            document.getElementById('label-bal').innerText = t.labelBal;
-            document.getElementById('label-growth').innerText = t.labelGrowth;
-            document.getElementById('label-dep').innerText = t.labelDep;
-            document.getElementById('badge-dep').innerText = t.badgeDep;
-            document.getElementById('label-gift').innerText = t.labelGift;
-            document.getElementById('badge-gift').innerText = t.badgeGift;
-            document.getElementById('panel-title').innerText = t.panelTitle;
-            document.getElementById('panel-sub').innerText = t.panelSub;
-            document.getElementById('badge-status').innerText = t.badgeStatus;
-            document.getElementById('btn-trade').innerText = t.btnTrade;
-            document.getElementById('btn-withdraw').innerText = t.btnWithdraw;
-            document.getElementById('btn-logout').innerText = t.logout;
-        }
-
-        function openModal(m) {
-            mode = m;
-            const t = translations[lang];
-            document.getElementById('modal-title').innerText = mode === 'register' ? t.modalReg : t.modalLog;
-            document.getElementById('auth-modal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('auth-modal').classList.add('hidden');
-        }
-
-        function handleAuth(e) {
-            e.preventDefault();
-            closeModal();
-            document.getElementById('landing-screen').classList.add('hidden');
-            document.getElementById('dashboard-screen').classList.remove('hidden');
-        }
-
-        function executeTrade() {
-            alert(translations[lang].alertTrade);
-        }
-
-        function requestWithdrawal() {
-            alert(translations[lang].alertWithdraw);
-        }
-    </script>
-</body>
-</html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Apex Terminal — Private AI Trading</title>
+<meta name="theme-color" content="#08111f">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#08111f;--panel:#101c2c;--line:#233246;--muted:#91a1b7;--green:#43e0b0;--blue:#74b8ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% -10%,#17334a 0,transparent 42%),var(--bg);color:#edf4fb;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+.panel{background:linear-gradient(145deg,rgba(19,33,50,.96),rgba(12,23,37,.98));border:1px solid var(--line);border-radius:18px}.muted{color:var(--muted)}.green{color:var(--green)}.btn{border:1px solid #2c4057;border-radius:11px;padding:10px 14px;background:#17283b;color:#edf4fb;font-size:13px;font-weight:650;transition:.18s}.btn:hover{filter:brightness(1.2);transform:translateY(-1px)}.btn-primary{background:linear-gradient(120deg,#24bd91,#43e0b0);color:#05251e;border:0}.btn-danger{background:#3b2029;border-color:#6e3441;color:#ffb9c5}.field{width:100%;background:#081421;border:1px solid #2a3b50;border-radius:10px;padding:11px 12px;color:#edf4fb;outline:none}.field:focus{border-color:#43e0b0}.navitem{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;border-radius:11px;color:#9bacc0;text-align:left;font-size:13px}.navitem.active,.navitem:hover{background:#1a3040;color:#fff}.navitem.active{box-shadow:inset 3px 0 #43e0b0}.eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#8fa2b9;font-weight:750}.metric{font-size:clamp(22px,3vw,31px);letter-spacing:-.04em;font-weight:760}.pill{font-size:10px;border-radius:99px;padding:5px 8px;background:#1b3442;color:#7fe8c8;font-weight:700}.table-row{border-bottom:1px solid #233246}.table-row:last-child{border:0}.tabpage{display:none}.tabpage.active{display:block}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:99;background:#193246;border:1px solid #34556a;padding:12px 18px;border-radius:12px;box-shadow:0 10px 40px #0007;font-size:13px;max-width:90vw}.hidden{display:none!important}
+@media(max-width:800px){#layout{display:block}#sidebar{display:flex;overflow:auto;gap:4px;padding:8px;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--line);background:#091321}#sidebar .brand,#sidebar .navlabel,#sidebar .sidefoot{display:none}#sidebar .navitem{width:auto;white-space:nowrap;padding:10px 12px}#sidebar .navitem span:last-child{display:inline}#sidebar .navitem.active{box-shadow:inset 0 -2px #43e0b0}#main{padding:14px!important}.grid3{grid-template-columns:1fr!important}.grid2{grid-template-columns:1fr!important}.header-right .hide-mobile{display:none}.metric{font-size:25px}}
+</style></head>
+<body>
+<div id="notice" class="px-4 py-2 text-center text-xs border-b border-amber-500/20 bg-amber-400/10 text-amber-100">PREVIEW MODE · Executions are simulated · Activity is saved only in this browser until a secure backend is connected.</div>
+<div id="layout" class="min-h-screen md:flex">
+<aside id="sidebar" class="w-full md:w-[238px] md:min-h-screen md:sticky md:top-0 md:h-screen p-4 flex flex-col gap-5">
+<div class="brand flex items-center gap-3 px-2 pt-2"><div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-[#06251e]" style="background:linear-gradient(140deg,#43e0b0,#7cbaff)">A</div><div><div class="font-bold tracking-wide">APEX <span class="green">TERMINAL</span></div><div class="muted text-[10px] tracking-widest mt-1">PRIVATE AI MARKETS</div></div></div>
+<div class="navlabel eyebrow px-3 mt-2">Workspace</div>
+<button class="navitem active" data-page="overview"><span>◈</span><span>Overview</span></button>
+<button class="navitem" data-page="markets"><span>⌁</span><span>Markets & chart</span></button>
+<button class="navitem" data-page="trade"><span>↗</span><span>AI strategy lab</span></button>
+<button class="navitem" data-page="funding"><span>＋</span><span>Top-up requests</span></button>
+<button class="navitem" data-page="messages"><span>◌</span><span>Messages <b id="messageCount" class="pill ml-auto">0</b></span></button>
+<button class="navitem" data-page="history"><span>≡</span><span>Activity history</span></button>
+<div class="navlabel eyebrow px-3 mt-4">Management</div>
+<button class="navitem" data-page="admin"><span>⚙</span><span>Admin center</span></button>
+<div class="sidefoot mt-auto panel p-4"><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs font-semibold">Market feed</span><span id="feedStatus" class="muted text-[10px] ml-auto">Connecting</span></div><p class="muted text-[11px] leading-relaxed mt-3">Live prices where available. No real orders are placed in preview mode.</p></div>
+</aside>
+<main id="main" class="flex-1 min-w-0 p-5 md:p-8 max-w-[1600px] mx-auto">
+<header class="flex flex-wrap items-center justify-between gap-4 mb-7"><div><div class="eyebrow mb-2">MONDAY — PRIVATE WORKSPACE</div><h1 id="pageTitle" class="text-2xl md:text-3xl font-bold tracking-tight">Market overview</h1><p id="pageSubtitle" class="muted text-sm mt-2">Your market desk, strategy signals and portfolio at a glance.</p></div><div class="header-right flex items-center gap-3"><span class="pill">● PREVIEW / SIMULATED</span><button class="btn" id="roleBtn">View: Customer</button><div class="w-10 h-10 rounded-full border border-[#31536a] bg-[#183b4a] flex items-center justify-center font-bold green">A</div></div></header>
+<div class="flex flex-wrap gap-2 mb-5"><span class="pill">● Price feed status: <span id="priceStatus">Loading</span></span><span class="pill" style="background:#292a3d;color:#c7c7ff">SIMULATED EXECUTION</span><span class="muted text-xs self-center ml-auto">Updated <span id="updatedAt">—</span></span></div>
+<section id="page-overview" class="tabpage active space-y-5">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 grid3">
+<div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Available balance</span><span class="muted">◉</span></div><div id="balance" class="metric mt-4">$0.00</div><div class="muted text-xs mt-3">Approved funding + welcome credit</div></div>
+<div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Simulated open P/L</span><span class="muted">↗</span></div><div id="pnl" class="metric mt-4">$0.00</div><div class="muted text-xs mt-3">Calculated from preview orders only</div></div>
+<div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Open simulated positions</span><span class="muted">⌁</span></div><div id="positions" class="metric mt-4">0</div><div class="muted text-xs mt-3">No real exchange orders are placed</div></div>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-4 grid2">
+<div class="panel p-5"><div class="flex justify-between items-start gap-3"><div><h2 class="font-bold text-lg">Market pulse</h2><p class="muted text-xs mt-1">Selected assets · live public prices when available</p></div><button class="btn" id="refreshPrices">↻ Refresh</button></div><div id="assetList" class="mt-5 space-y-1"><div class="muted text-sm py-8 text-center">Loading market prices…</div></div></div>
+<div class="panel p-5"><div class="flex justify-between items-start"><div><h2 class="font-bold text-lg">AI strategy brief</h2><p class="muted text-xs mt-1">Transparent market observations</p></div><span class="pill">ASSISTED</span></div><div class="mt-5 space-y-4"><div class="rounded-xl p-4 bg-[#0b1927] border border-[#23394b]"><div class="flex items-center gap-2"><span class="green">●</span><span class="text-sm font-semibold">Market context</span></div><p id="brief" class="muted text-sm leading-relaxed mt-2">Waiting for price data. The strategy brief will summarize observed price changes, not promise returns.</p></div><div class="flex gap-3"><button class="btn btn-primary flex-1" data-goto="trade">Open strategy lab</button><button class="btn flex-1" data-goto="markets">Explore markets</button></div></div></div>
+</div>
+<div class="panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div><h2 class="font-bold text-lg">Recent activity</h2><p class="muted text-xs mt-1">A transparent record of preview actions</p></div><button class="btn" data-goto="history">View all</button></div><div id="recentActivity" class="muted text-sm">No activity yet.</div></div>
+</section>
+<section id="page-markets" class="tabpage space-y-5"><div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 grid2"><div class="panel p-5"><div class="flex flex-wrap justify-between gap-3"><div><h2 id="chartTitle" class="font-bold text-lg">Bitcoin · BTC</h2><div id="chartPrice" class="metric mt-2">—</div><div id="chartChange" class="muted text-xs mt-1">Public market data</div></div><select id="assetSelect" class="field max-w-44"><option value="bitcoin">Bitcoin (BTC)</option><option value="ethereum">Ethereum (ETH)</option><option value="solana">Solana (SOL)</option><option value="ripple">XRP</option><option value="binancecoin">BNB</option></select></div><div class="mt-5 h-[260px]"><canvas id="priceChart"></canvas></div><p class="muted text-xs mt-3">Chart is built from available public price snapshots; refresh to update. Not investment advice.</p></div><div class="panel p-5"><h2 class="font-bold text-lg">Watchlist</h2><p class="muted text-xs mt-1">Choose an asset to inspect</p><div id="watchlist" class="mt-4 space-y-1"></div></div></div></section>
+<section id="page-trade" class="tabpage space-y-5"><div class="panel p-5 md:p-6"><div class="flex flex-wrap justify-between gap-3"><div><div class="eyebrow mb-2">STRATEGY WORKSPACE</div><h2 class="text-xl font-bold">AI-assisted strategy lab</h2><p class="muted text-sm mt-2 max-w-2xl">Review a market snapshot and create a simulated order. This preview never sends orders to an exchange and does not generate guaranteed returns.</p></div><span class="pill">SIMULATION ONLY</span></div><div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-7 grid2"><div><label class="muted text-xs block mb-2">Asset</label><select id="tradeAsset" class="field"><option value="bitcoin">Bitcoin (BTC)</option><option value="ethereum">Ethereum (ETH)</option><option value="solana">Solana (SOL)</option><option value="ripple">XRP</option><option value="binancecoin">BNB</option></select></div><div><label class="muted text-xs block mb-2">Order direction</label><select id="tradeSide" class="field"><option value="buy">Buy / Long (simulated)</option><option value="sell">Sell / Short (simulated)</option></select></div><div><label class="muted text-xs block mb-2">Order size (USD)</label><input id="tradeAmount" type="number" min="1" step="1" value="25" class="field"></div><div><label class="muted text-xs block mb-2">Risk limit per trade (%)</label><input id="riskLimit" type="number" min="0.1" max="5" step="0.1" value="1" class="field"></div></div><div class="rounded-xl bg-[#0a1725] border border-[#263b50] p-4 mt-5"><div class="eyebrow">MARKET SNAPSHOT</div><div id="tradeSnapshot" class="text-sm mt-2">Loading current market data…</div><div id="riskText" class="muted text-xs mt-2">Risk is a planning limit, not a guarantee against loss.</div></div><div class="flex flex-wrap gap-3 mt-5"><button id="analyzeBtn" class="btn">Generate market summary</button><button id="placeOrder" class="btn btn-primary">Place simulated order</button></div><div id="analysisOutput" class="hidden rounded-xl p-4 mt-4 border border-[#2b4c5c] bg-[#102b36] text-sm leading-relaxed"></div></div><div class="panel p-5"><h3 class="font-bold">Recent simulated orders</h3><div id="tradeHistory" class="mt-4 muted text-sm">No simulated orders yet.</div></div></section>
+<section id="page-funding" class="tabpage space-y-5"><div class="grid grid-cols-1 lg:grid-cols-[.8fr_1.2fr] gap-4 grid2"><div class="panel p-5"><h2 class="font-bold text-lg">Request a top-up</h2><p class="muted text-sm mt-2">Enter the amount you want to add. Your request is pending until the administrator reviews it. Submitting a request does not move money or increase your balance.</p><form id="topupForm" class="mt-5 space-y-4"><div><label class="muted text-xs block mb-2">Amount (USD)</label><input id="topupAmount" class="field" type="number" min="1" step=".01" placeholder="250.00" required></div><div><label class="muted text-xs block mb-2">Reference / note (optional)</label><input id="topupNote" class="field" maxlength="140" placeholder="Payment reference or note"></div><button class="btn btn-primary w-full" type="submit">Submit top-up request</button></form></div><div class="panel p-5"><div class="flex justify-between gap-3"><div><h2 class="font-bold text-lg">Top-up history</h2><p class="muted text-xs mt-1">Only approved requests change the preview balance.</p></div><span class="pill" id="topupCount">0 requests</span></div><div id="topupHistory" class="mt-4">No requests yet.</div></div></div></section>
+<section id="page-messages" class="tabpage"><div class="panel overflow-hidden"><div class="p-5 border-b border-[#233246] flex justify-between items-center"><div><h2 class="font-bold text-lg">Secure support inbox</h2><p class="muted text-xs mt-1">Preview messages stay in this browser; backend needed for real customer-to-admin messaging.</p></div><span class="pill">PRIVATE INBOX</span></div><div class="grid grid-cols-1 md:grid-cols-[220px_1fr] min-h-[470px]"><div id="conversationList" class="border-b md:border-b-0 md:border-r border-[#233246] p-3"><button class="btn w-full" id="newConversation">＋ New conversation</button><div id="conversations" class="mt-3 muted text-sm">No conversations yet.</div></div><div class="flex flex-col min-w-0"><div id="chatHeader" class="p-4 border-b border-[#233246] font-semibold text-sm">Select or start a conversation</div><div id="chatMessages" class="flex-1 p-4 space-y-3 min-h-[260px]"></div><form id="messageForm" class="p-3 border-t border-[#233246]"><div class="flex gap-2 items-end"><textarea id="messageText" rows="2" class="field resize-y" placeholder="Write a message…" maxlength="3000"></textarea><label class="btn cursor-pointer">＋<input id="attachment" type="file" class="hidden" accept="image/*,audio/*"></label><button class="btn btn-primary" type="submit">Send</button></div><div id="attachmentName" class="muted text-xs mt-2"></div></form></div></div></div></section>
+<section id="page-history" class="tabpage"><div class="panel p-5"><div class="flex flex-wrap justify-between gap-3"><div><h2 class="font-bold text-lg">Activity ledger</h2><p class="muted text-xs mt-1">Preview activity is local and is not a financial statement.</p></div><button id="exportActivity" class="btn">Export CSV</button></div><div id="allActivity" class="mt-5">No activity recorded.</div></div></section>
+<section id="page-admin" class="tabpage space-y-5"><div class="rounded-xl p-4 border border-amber-500/30 bg-amber-500/10 text-amber-100 text-sm">Preview administrator controls are not protected by server authentication. Do not deploy this preview as a live financial service. Configure Supabase Auth and the included RLS schema before using real customer accounts.</div><div class="grid grid-cols-1 lg:grid-cols-2 gap-4 grid2"><div class="panel p-5"><div class="eyebrow mb-2">CUSTOMIZATION</div><h2 class="font-bold text-lg">Welcome gift settings</h2><p class="muted text-sm mt-2">Set the welcome credit shown for new preview profiles. This is promotional preview credit, not cash or a real deposit.</p><form id="giftForm" class="mt-5 space-y-4"><div><label class="muted text-xs block mb-2">Gift amount (USD)</label><input id="giftAmount" type="number" min="0" max="100000" step=".01" class="field"></div><div><label class="muted text-xs block mb-2">Gift title</label><input id="giftTitle" maxlength="80" class="field"></div><div><label class="muted text-xs block mb-2">Terms shown to customers</label><textarea id="giftTerms" rows="3" maxlength="500" class="field"></textarea></div><button class="btn btn-primary" type="submit">Save gift settings</button></form></div><div class="panel p-5"><div class="eyebrow mb-2">REQUEST QUEUE</div><h2 class="font-bold text-lg">Review top-ups</h2><p class="muted text-sm mt-2">Approvals only update the local preview ledger. Real payment verification must happen before any real balance is credited.</p><div id="adminRequests" class="mt-4">No pending requests.</div></div></div><div class="panel p-5"><h2 class="font-bold text-lg">Profile & system</h2><p class="muted text-sm mt-2">Use the customer/admin switch to preview both layouts. It is a visual switch only and not authentication.</p><div class="flex flex-wrap gap-3 mt-4"><button class="btn" id="switchCustomer">Preview customer view</button><button class="btn" id="switchAdmin">Preview admin view</button><button class="btn btn-danger" id="resetPreview">Reset local preview data</button></div></div></section>
+<footer class="muted text-[11px] mt-8 mb-5 flex flex-wrap gap-2 justify-between"><span>APEX TERMINAL · Private workspace</span><span>Market data may be delayed · Simulated execution · No guaranteed returns</span></footer>
+</main></div><div id="toast" class="toast hidden"></div>
+<script>
+const $=id=>document.getElementById(id);
+const STORE='apex-preview-v2';
+const defaults={gift:{amount:250,title:'Apex Welcome Credit',terms:'Promotional preview credit for exploring simulated strategies. Not cash and not withdrawable.'},approved:0,requests:[],orders:[],activity:[],conversations:[],messages:[],activeConversation:null,role:'customer',prices:{},history:{}};
+let state=load(), selectedAsset='bitcoin', chart;
+function load(){try{return {...structuredClone(defaults),...JSON.parse(localStorage.getItem(STORE)||'{}')}}catch{return structuredClone(defaults)}}
+function save(){localStorage.setItem(STORE,JSON.stringify(state));renderAll()}
+function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(Number(n)||0)}
+function toast(msg){$('toast').textContent=msg;$('toast').classList.remove('hidden');setTimeout(()=>$('toast').classList.add('hidden'),3200)}
+function log(type,detail,amount=''){state.activity.unshift({id:crypto.randomUUID(),time:new Date().toISOString(),type,detail,amount});state.activity=state.activity.slice(0,300)}
+const assets=[['bitcoin','BTC','Bitcoin','₿'],['ethereum','ETH','Ethereum','◆'],['solana','SOL','Solana','◎'],['ripple','XRP','XRP','✕'],['binancecoin','BNB','BNB','◆']];
+function price(id){return Number(state.prices[id]?.usd)||0}
+function fmtPrice(n){return n?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:n<1?5:2}).format(n):'Unavailable'}
+async function fetchPrices(){ $('feedStatus').textContent='Connecting';$('priceStatus').textContent='Loading';try{const ids=assets.map(a=>a[0]).join(',');const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+ids+'&vs_currencies=usd&include_24hr_change=true',{cache:'no-store'});if(!r.ok)throw Error('Market provider unavailable');const data=await r.json();state.prices={...state.prices,...data};for(const a of assets){const p=price(a[0]);if(p){state.history[a[0]]=state.history[a[0]]||[];state.history[a[0]].push({t:Date.now(),p});state.history[a[0]]=state.history[a[0]].slice(-36)}}state.updatedAt=new Date().toISOString();localStorage.setItem(STORE,JSON.stringify(state));$('feedStatus').textContent='Connected';$('priceStatus').textContent='Live feed';$('updatedAt').textContent=new Date().toLocaleTimeString();renderAssets();renderChart();renderTradeSnapshot();$('brief').textContent=makeBrief();}catch(e){$('feedStatus').textContent='Unavailable';$('priceStatus').textContent='Unavailable';$('updatedAt').textContent='No recent update';renderAssets();$('brief').textContent='Market data could not be fetched. Check connectivity or refresh later; no price is invented.';toast('Market provider unavailable. No prices were fabricated.')} }
+function makeBrief(){const vals=assets.map(a=>({a,p:price(a[0]),c:Number(state.prices[a[0]]?.usd_24h_change)})).filter(x=>x.p);if(!vals.length)return 'Waiting for public price data. No market claim is available.';const best=[...vals].sort((a,b)=>(b.c||0)-(a.c||0))[0],worst=[...vals].sort((a,b)=>(a.c||0)-(b.c||0))[0];return 'Among the assets currently available, '+best.a[1]+' has the strongest reported 24-hour move ('+(Number.isFinite(best.c)?best.c.toFixed(2)+'%':'change unavailable')+'), while '+worst.a[1]+' has the weakest ('+(Number.isFinite(worst.c)?worst.c.toFixed(2)+'%':'change unavailable')+'). This is a descriptive snapshot, not a prediction or trading guarantee.'}
+function renderAssets(){const html=assets.map(a=>{const p=price(a[0]),c=Number(state.prices[a[0]]?.usd_24h_change);return '<button class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#182b3d] text-left" data-asset="'+a[0]+'"><div class="w-9 h-9 rounded-full bg-[#20374a] flex items-center justify-center green font-bold">'+a[3]+'</div><div class="flex-1"><div class="text-sm font-semibold">'+a[2]+'</div><div class="muted text-xs">'+a[1]+'</div></div><div class="text-right"><div class="text-sm font-semibold">'+fmtPrice(p)+'</div><div class="text-xs '+(c>=0?'green':'text-rose-300')+'">'+(Number.isFinite(c)?(c>0?'+':'')+c.toFixed(2)+'%':'Change unavailable')+'</div></div></button>'}).join('');$('assetList').innerHTML=html;$('watchlist').innerHTML=html;document.querySelectorAll('[data-asset]').forEach(b=>b.addEventListener('click',()=>{selectedAsset=b.dataset.asset;$('assetSelect').value=selectedAsset;renderChart()}))}
+function renderChart(){if(!$('priceChart'))return;const a=assets.find(a=>a[0]===selectedAsset)||assets[0];$('chartTitle').textContent=a[2]+' · '+a[1];$('chartPrice').textContent=fmtPrice(price(a[0]));const c=Number(state.prices[a[0]]?.usd_24h_change);$('chartChange').textContent=Number.isFinite(c)?(c>=0?'+':'')+c.toFixed(2)+'% over 24 hours · Public market feed':'24-hour change unavailable';const points=state.history[a[0]]||[];if(chart)chart.destroy();chart=new Chart($('priceChart'),{type:'line',data:{labels:points.map(x=>new Date(x.t).toLocaleTimeString()),datasets:[{data:points.map(x=>x.p),borderColor:'#43e0b0',backgroundColor:'rgba(67,224,176,.08)',fill:true,tension:.28,pointRadius:2,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a1b7',maxTicksLimit:5},grid:{color:'#233246'}},y:{ticks:{color:'#91a1b7'},grid:{color:'#233246'}}}}})}
+function renderTradeSnapshot(){const a=assets.find(a=>a[0]===$('tradeAsset')?.value)||assets[0];$('tradeSnapshot').textContent=a[2]+' ('+a[1]+') · Current public price: '+fmtPrice(price(a[0]))+'. Simulated execution uses this snapshot only.'}
+function totalBalance(){return Number(state.approved||0)+Number(state.gift?.amount||0)}
+function renderBalance(){$('balance').textContent=money(totalBalance());$('pnl').textContent=money(0);$('positions').textContent=String(state.orders.filter(o=>o.status==='Open').length);$('giftAmount').value=state.gift.amount;$('giftTitle').value=state.gift.title;$('giftTerms').value=state.gift.terms}
+function renderActivity(){const rows=state.activity.slice(0,5);$('recentActivity').innerHTML=rows.length?rows.map(activityRow).join(''):'<div class="muted py-5 text-center">No activity yet. Your actions will appear here.</div>';$('allActivity').innerHTML=state.activity.length?state.activity.map(activityRow).join(''):'<div class="muted py-6 text-center">No activity recorded.</div>'}
+function activityRow(x){return '<div class="table-row py-3 flex flex-wrap items-center gap-3"><div class="w-8 h-8 rounded-lg bg-[#1b3041] flex items-center justify-center green">·</div><div class="flex-1 min-w-[130px]"><div class="text-sm font-medium">'+esc(x.type)+'</div><div class="muted text-xs mt-1">'+esc(x.detail)+'</div></div><div class="muted text-xs">'+new Date(x.time).toLocaleString()+'</div>'+(x.amount?'<div class="text-sm font-semibold">'+esc(x.amount)+'</div>':'')+'</div>'}
+function renderFunding(){const rows=state.requests;$('topupCount').textContent=rows.length+' requests';$('topupHistory').innerHTML=rows.length?rows.slice().reverse().map(r=>'<div class="table-row py-4 flex flex-wrap gap-3 items-center"><div class="flex-1"><div class="font-semibold">'+money(r.amount)+'</div><div class="muted text-xs mt-1">'+esc(r.note||'No note')+' · '+new Date(r.time).toLocaleString()+'</div></div><span class="pill" style="'+(r.status==='Approved'?'background:#153b33;color:#6fe4b9':r.status==='Rejected'?'background:#43242b;color:#ffb7c2':'')+'">'+r.status+'</span></div>').join(''):'<div class="muted py-8 text-center">No top-up requests submitted.</div>';$('adminRequests').innerHTML=rows.filter(r=>r.status==='Pending').length?rows.filter(r=>r.status==='Pending').map(r=>'<div class="table-row py-4"><div class="flex justify-between gap-3"><div><div class="font-semibold">'+money(r.amount)+'</div><div class="muted text-xs mt-1">'+esc(r.note||'No note')+'</div></div><span class="pill">PENDING</span></div><div class="flex gap-2 mt-3"><button class="btn btn-primary" data-approve="'+r.id+'">Approve preview</button><button class="btn btn-danger" data-reject="'+r.id+'">Reject</button></div></div>').join(''):'<div class="muted py-5">No pending requests.</div>';document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>reviewRequest(b.dataset.approve,'Approved'));document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>reviewRequest(b.dataset.reject,'Rejected'))}
+function reviewRequest(id,status){const r=state.requests.find(x=>x.id===id);if(!r||r.status!=='Pending')return;if(status==='Approved')state.approved+=Number(r.amount);r.status=status;r.reviewedAt=new Date().toISOString();log('Top-up '+status.toLowerCase(),money(r.amount)+' · preview only',money(r.amount));save();toast(status==='Approved'?'Approved in local preview only. No payment was verified.':'Request rejected in local preview.')}
+function renderOrders(){$('tradeHistory').innerHTML=state.orders.length?state.orders.slice().reverse().map(o=>'<div class="table-row py-3 flex flex-wrap gap-2 items-center"><div class="flex-1"><div class="font-semibold text-sm">'+o.symbol+' · '+o.side.toUpperCase()+'</div><div class="muted text-xs mt-1">'+money(o.amount)+' at '+fmtPrice(o.price)+' · '+new Date(o.time).toLocaleString()+'</div></div><span class="pill" style="background:#292a3d;color:#c7c7ff">SIMULATED</span></div>').join(''):'<div class="muted py-5">No simulated orders placed.</div>'}
+function renderMessages(){const convs=state.conversations;$('messageCount').textContent=String(state.messages.length);$('conversations').innerHTML=convs.length?convs.map(c=>'<button class="w-full text-left p-3 rounded-lg hover:bg-[#172b3d] '+(state.activeConversation===c.id?'bg-[#1b3344]':'')+'" data-conv="'+c.id+'"><div class="text-sm font-semibold">'+esc(c.title)+'</div><div class="muted text-xs mt-1">'+(state.messages.filter(m=>m.conversation===c.id).length)+' messages</div></button>').join(''):'<div class="muted text-xs p-3">Start a conversation to send text, photos or audio attachments in this preview.</div>';document.querySelectorAll('[data-conv]').forEach(b=>b.onclick=()=>{state.activeConversation=b.dataset.conv;save()});const c=convs.find(c=>c.id===state.activeConversation);$('chatHeader').textContent=c?c.title:'Select or start a conversation';const msgs=state.messages.filter(m=>m.conversation===state.activeConversation);$('chatMessages').innerHTML=msgs.map(m=>'<div class="flex '+(m.sender===state.role?'justify-end':'justify-start')+'"><div class="max-w-[85%] rounded-2xl px-4 py-3 '+(m.sender===state.role?'bg-[#174438]':'bg-[#1b2c40]')+'"><div class="text-[10px] muted mb-1">'+(m.sender==='admin'?'Administrator':'Customer')+' · '+new Date(m.time).toLocaleTimeString()+'</div>'+(m.text?'<div class="text-sm whitespace-pre-wrap break-words">'+esc(m.text)+'</div>':'')+(m.data?m.type.startsWith('image/')?'<img src="'+m.data+'" class="max-w-full max-h-56 rounded-lg mt-2">':m.type.startsWith('audio/')?'<audio controls src="'+m.data+'" class="max-w-full mt-2"></audio>':'<a download="'+esc(m.name)+'" href="'+m.data+'" class="underline text-sm">Download attachment</a>':'')+'</div></div>').join('');$('chatMessages').scrollTop=$('chatMessages').scrollHeight}
+function renderAll(){renderBalance();renderActivity();renderFunding();renderOrders();renderMessages();$('riskText').textContent='Risk limit: '+($('riskLimit')?.value||1)+'% of the order size ('+money((Number($('tradeAmount')?.value)||0)*(Number($('riskLimit')?.value||1)/100))+'). Planning estimate only; losses can exceed estimates.';renderAssets();renderTradeSnapshot()}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+const titles={overview:['Market overview','Your market desk, strategy signals and portfolio at a glance.'],markets:['Markets & chart','Review public market prices and recent snapshots.'],trade:['AI strategy lab','Understand market context and test simulated orders.'],funding:['Top-up requests','Submit and review preview funding requests.'],messages:['Messages','A two-way support inbox for the current preview.'],history:['Activity history','Review a transparent record of local preview activity.'],admin:['Admin center','Manage preview settings and review top-up requests.']};
+function go(page){document.querySelectorAll('.tabpage').forEach(p=>p.classList.remove('active'));$('page-'+page).classList.add('active');document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('pageTitle').textContent=titles[page][0];$('pageSubtitle').textContent=titles[page][1];if(page==='markets')renderChart();if(page==='admin')renderFunding();if(page==='messages')renderMessages();window.scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>go(b.dataset.goto));
+$('roleBtn').onclick=()=>{state.role=state.role==='customer'?'admin':'customer';$('roleBtn').textContent='View: '+(state.role==='admin'?'Admin':'Customer');save();toast('Preview view switched. This is not a security boundary.');if(state.role==='admin')go('admin')};
+$('switchCustomer').onclick=()=>{state.role='customer';$('roleBtn').textContent='View: Customer';save();go('overview')};$('switchAdmin').onclick=()=>{state.role='admin';$('roleBtn').textContent='View: Admin';save();go('admin')};
+$('refreshPrices').onclick=fetchPrices;$('assetSelect').onchange=e=>{selectedAsset=e.target.value;renderChart()};$('tradeAsset').onchange=renderTradeSnapshot;$('tradeAmount').oninput=renderAll;$('riskLimit').oninput=renderAll;
+$('topupForm').onsubmit=e=>{e.preventDefault();const amount=Number($('topupAmount').value);if(!Number.isFinite(amount)||amount<=0)return toast('Enter a valid positive amount.');const r={id:crypto.randomUUID(),amount,note:$('topupNote').value.trim(),time:new Date().toISOString(),status:'Pending'};state.requests.push(r);log('Top-up requested',money(amount)+' · pending administrator review',money(amount));save();$('topupForm').reset();toast('Request submitted as pending. No funds were moved.')};
+$('giftForm').onsubmit=e=>{e.preventDefault();const amount=Number($('giftAmount').value);if(!Number.isFinite(amount)||amount<0)return toast('Enter a valid gift amount.');state.gift={amount,title:$('giftTitle').value.trim()||'Welcome credit',terms:$('giftTerms').value.trim()};log('Welcome gift updated','Preview gift set to '+money(amount));save();toast('Welcome gift saved in this browser preview.')};
+$('analyzeBtn').onclick=()=>{$('analysisOutput').classList.remove('hidden');$('analysisOutput').textContent=makeBrief()+' Current price for '+$('tradeAsset').selectedOptions[0].text+': '+fmtPrice(price($('tradeAsset').value))+'. A single public-price snapshot is insufficient to predict a reliable trade.'};
+$('placeOrder').onclick=()=>{const id=$('tradeAsset').value,amount=Number($('tradeAmount').value),p=price(id),a=assets.find(x=>x[0]===id);if(!p)return toast('No current price available. Refresh the market feed before placing a simulated order.');if(!Number.isFinite(amount)||amount<=0)return toast('Enter a valid order size.');if(amount>totalBalance())return toast('Order size exceeds the preview balance. Request a top-up or reduce the order.');const o={id:crypto.randomUUID(),asset:id,symbol:a[1],side:$('tradeSide').value,amount,price:p,time:new Date().toISOString(),status:'Open'};state.orders.push(o);log('Simulated order placed',o.side.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));save();toast('Simulated order recorded. No exchange order was sent.')};
+$('newConversation').onclick=()=>{const title=prompt('Conversation title','Support conversation');if(!title)return;const c={id:crypto.randomUUID(),title:title.slice(0,80),createdAt:new Date().toISOString()};state.conversations.push(c);state.activeConversation=c.id;save()};
+$('attachment').onchange=e=>{$('attachmentName').textContent=e.target.files[0]?e.target.files[0].name+' · local preview attachment':''};
+$('messageForm').onsubmit=e=>{e.preventDefault();const text=$('messageText').value.trim(),file=$('attachment').files[0];if(!state.activeConversation){toast('Start or select a conversation first.');return}if(!text&&!file)return;const send=(data='',type='',name='')=>{state.messages.push({id:crypto.randomUUID(),conversation:state.activeConversation,sender:state.role,text,data,type,name,time:new Date().toISOString()});log('Message sent',(state.role==='admin'?'Admin':'Customer')+' · '+(text||name||'attachment'));save();$('messageText').value='';$('attachment').value='';$('attachmentName').textContent=''};if(file){if(file.size>900000){toast('Preview attachments must be under 900 KB. Configure secure storage for larger files.');return}const reader=new FileReader();reader.onload=()=>send(reader.result,file.type,file.name);reader.readAsDataURL(file)}else send()};
+$('exportActivity').onclick=()=>{const csv=['time,type,detail,amount',...state.activity.map(x=>[x.time,x.type,x.detail,x.amount].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='apex-preview-activity.csv';a.click();URL.revokeObjectURL(a.href)};
+$('resetPreview').onclick=()=>{if(confirm('Clear all preview data stored in this browser?')){localStorage.removeItem(STORE);state=load();save();go('overview');toast('Local preview reset.')}};
+renderAll();$('roleBtn').textContent='View: '+(state.role==='admin'?'Admin':'Customer');fetchPrices();setInterval(fetchPrices,60000);
+</script></body></html>
