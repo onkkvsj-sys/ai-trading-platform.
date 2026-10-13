@@ -108,6 +108,12 @@
     state.role = profile.role === 'admin' ? 'admin' : 'customer';
     document.getElementById('roleBtn').textContent = 'Account: ' + state.role;
     document.getElementById('roleBtn').disabled = true;
+    if (!document.getElementById('signOutBtn')) {
+      const signOut = document.createElement('button');
+      signOut.id = 'signOutBtn'; signOut.className = 'btn'; signOut.textContent = 'Sign out';
+      signOut.onclick = async () => { signOut.disabled = true; await client.auth.signOut(); location.reload(); };
+      document.querySelector('.header-right').insertBefore(signOut, document.querySelector('.header-right').lastElementChild);
+    }
     document.getElementById('switchCustomer').classList.add('hidden');
     document.getElementById('switchAdmin').classList.add('hidden');
     document.getElementById('resetPreview').classList.add('hidden');
