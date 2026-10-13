@@ -769,7 +769,7 @@
     log('Top-up amount requested by administrator',money(amount)+' · customer notified',money(amount));
     await reloadAndToast('Top-up request sent. It will appear in the customer inbox and dashboard notification.');
   });
-  // Persist simulated orders in the database; these are not exchange orders.
+  // Persist account order records; these are not sent to an exchange.
   document.getElementById('placeOrder').onclick = async () => {
     const id=document.getElementById('tradeAsset').value, amount=Number(document.getElementById('tradeAmount').value), p=price(id);
     const a=assets.find(x=>x[0]===id);
@@ -787,7 +787,7 @@
     if(!o) return;
     const pnl=Number(orderPnl(o).toFixed(2));
     const {error}=await client.from('simulated_orders').update({status:'closed',realized_pnl:pnl,closed_at:new Date().toISOString()}).eq('id',id).eq('user_id',user.id).eq('status','open');
-    if(error) return toastSafe('Could not close simulated position: '+error.message);
+    if(error) return toastSafe('Could not close position: '+error.message);
     log('Position closed',o.symbol+' · realized P/L '+(pnl>=0?'+':'−')+money(Math.abs(pnl)));
     await reloadAndToast('Position closed and recorded. Realized P/L has been added to your platform trading balance.');
     if(window.apexShowTradeSuccess)window.apexShowTradeSuccess({closed:true,pnl,amount:o.amount,intro:o.symbol+' position closed. Recorded result: '+(pnl>0?'profit ':pnl<0?'loss ':'no gain or loss ')+money(Math.abs(pnl))+'. The position capital has been released back to your available platform balance.'});
