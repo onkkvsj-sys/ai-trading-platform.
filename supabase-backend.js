@@ -210,17 +210,19 @@
     if (!user || loadingCloud) return;
     loadingCloud = true;
     try {
-      const [giftRes, requestsRes, messagesRes, ordersRes, activityRes, profilesRes] = await Promise.all([
+      const [giftRes, requestsRes, messagesRes, ordersRes, activityRes, profilesRes, withdrawalsRes] = await Promise.all([
         client.from('app_settings').select('value').eq('key','welcome_gift').maybeSingle(),
         client.from('topup_requests').select('*').order('created_at',{ascending:true}),
         client.from('messages').select('*').order('created_at',{ascending:true}),
         client.from('simulated_orders').select('*').order('created_at',{ascending:true}),
         client.from('activity_events').select('*').order('created_at',{ascending:false}).limit(300),
-        client.from('profiles').select('id,display_name,role,created_at,country_code,avatar_path,is_blocked,blocked_at,blocked_reason,deleted_at')
+        client.from('profiles').select('id,display_name,role,created_at,country_code,avatar_path,is_blocked,blocked_at,blocked_reason,deleted_at'),
+        client.from('withdrawal_requests').select('*').order('created_at',{ascending:true})
       ]);
-      for (const r of [giftRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes]) if (r.error) throw r.error;
+      for (const r of [giftRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes,withdrawalsRes]) if (r.error) throw r.error;
       if (giftRes.data?.value) state.gift = giftRes.data.value;
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
+      state.withdrawals = (withdrawalsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),currency:r.currency,bank_country:r.bank_country,bank_name:r.bank_name,account_holder:r.account_holder,account_number:r.account_number,status:r.status,eligibility_note:r.eligibility_note,time:r.created_at,reviewedAt:r.reviewed_at}));
       state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || '',is_blocked:!!p.is_blocked,blocked_at:p.blocked_at||null,blocked_reason:p.blocked_reason||'',deleted_at:p.deleted_at||null}));
       if (state.role === 'admin') state.customers = await Promise.all(state.customers.map(async c => { if (!c.avatar_path) return c; const { data: signed } = await client.storage.from('profile-photos').createSignedUrl(c.avatar_path,3600); return {...c,avatar_url:signed?.signedUrl || ''}; }));
       const profMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id,p.display_name || '']));
@@ -476,7 +478,65 @@
     });
     target.querySelectorAll('[data-account-action]').forEach(btn=>btn.onclick=()=>manageCustomerAccount(btn.dataset.accountAction,btn.dataset.accountId));
   }
-  renderAll = function() { originalRenderAll(); renderCustomers(); renderAdminSummary(); };
+  renderAll = function() { originalRenderAll(); renderCustomers(); renderAdminSummary(); renderWithdrawalAdmin(); };
+  // Bank selector preview and withdrawal request gate. Practice P/L is never treated as cash.
+  const withdrawCountryEl=document.getElementById('withdrawCountry');
+  const withdrawBankEl=document.getElementById('withdrawBank');
+  const withdrawHolderEl=document.getElementById('withdrawHolder');
+  const withdrawAccountEl=document.getElementById('withdrawAccount');
+  function updateWithdrawalPreview(){
+    const bank=document.getElementById('withdrawBank')?.value||'Choose your bank';
+    const country=document.getElementById('withdrawCountry')?.value||'Nigeria';
+    const holder=document.getElementById('withdrawHolder')?.value.trim()||'Account holder will appear here';
+    const raw=document.getElementById('withdrawAccount')?.value.replace(/\D/g,'')||'';
+    document.getElementById('withdrawPreviewBank').textContent=bank;
+    document.getElementById('withdrawPreviewCountry').textContent=country;
+    document.getElementById('withdrawPreviewHolder').textContent=holder;
+    document.getElementById('withdrawPreviewAccount').textContent=raw.length?'•••• •••• '+raw.slice(-4):'•••• ••••';
+  }
+  function refreshBankOptions(){
+    const country=withdrawCountryEl.value;
+    const lists={
+      'Nigeria':['Access Bank','Citibank Nigeria','Ecobank Nigeria','Fidelity Bank','First Bank of Nigeria','First City Monument Bank (FCMB)','Globus Bank','GTBank','Keystone Bank','Moniepoint','OPay','Palmpay','Polaris Bank','Providus Bank','Stanbic IBTC','Sterling Bank','SunTrust Bank','UBA','Union Bank','Unity Bank','Wema Bank','Zenith Bank'],
+      'Mexico':['BBVA México','Banorte','Citibanamex','HSBC México','Santander México','Scotiabank México'],
+      'United States':['Bank of America','Capital One','Chase','Citibank','PNC Bank','U.S. Bank','Wells Fargo'],
+      'United Kingdom':['Barclays','HSBC UK','Lloyds Bank','Monzo','NatWest','Revolut','Santander UK','Starling Bank'],
+      'Other':['Other bank (contact support to confirm eligibility)']
+    };
+    const list=lists[country]||lists.Other;
+    withdrawBankEl.innerHTML='<option value="">Choose your bank</option>'+list.map(b=>'<option>'+safe(b)+'</option>').join('');
+    updateWithdrawalPreview();
+  }
+  withdrawCountryEl?.addEventListener('change',refreshBankOptions);
+  [withdrawBankEl,withdrawHolderEl,withdrawAccountEl].forEach(el=>el?.addEventListener('input',updateWithdrawalPreview));
+  withdrawBankEl?.addEventListener('change',updateWithdrawalPreview);
+  refreshBankOptions();
+  document.getElementById('withdrawForm').onsubmit=async e=>{
+    e.preventDefault();
+    const amount=Number(document.getElementById('withdrawAmount').value);
+    const bank_country=withdrawCountryEl.value;
+    const bank_name=withdrawBankEl.value;
+    const account_holder=withdrawHolderEl.value.trim();
+    const account_number=withdrawAccountEl.value.replace(/\s/g,'');
+    if(!user||!Number.isFinite(amount)||amount<=0)return toastSafe('Enter a valid withdrawal amount.');
+    if(!bank_name||account_holder.length<2||!/^[0-9]{6,24}$/.test(account_number))return toastSafe('Check the selected bank, account holder name, and account number.');
+    if(!confirm('Review your bank destination before continuing. No transfer will be made because this workspace has no verified cash balance or connected payout provider. Save this ineligible request for your records?'))return;
+    const payload={user_id:user.id,amount,currency:'USD',bank_country,bank_name,account_holder,account_number,status:'ineligible',eligibility_note:'No verified cash balance or payment processor is connected.'};
+    const {error}=await client.from('withdrawal_requests').insert(payload);
+    if(error)return toastSafe('Withdrawal request could not be saved: '+error.message);
+    log('Withdrawal eligibility check',money(amount)+' requested to '+bank_name+' · not eligible; no transfer sent');
+    document.getElementById('withdrawResult').classList.remove('hidden');
+    document.getElementById('withdrawResult').innerHTML='<strong>Withdrawal not available yet</strong><p class="text-sm mt-2">This account has no verified cash balance eligible for withdrawal, and a payout provider is not connected. Practice trading results and welcome credits are not cash. Adding funds does not guarantee a withdrawal. No money has been sent.</p>';
+    document.getElementById('withdrawForm').reset();refreshBankOptions();await reloadAndToast('Eligibility result saved securely. No bank transfer was sent.');
+  };
+  // Render private withdrawal requests in the administrator control room.
+  function renderWithdrawalAdmin(){
+    const target=document.getElementById('adminWithdrawals');
+    if(!target||state.role!=='admin')return;
+    const rows=Array.isArray(state.withdrawals)?state.withdrawals:[];
+    target.innerHTML=rows.length?rows.slice().reverse().map(r=>'<div class="table-row py-4"><div class="flex flex-wrap justify-between gap-3"><div><div class="font-semibold">'+safe(money(r.amount))+' · '+safe(r.bank_name)+'</div><div class="muted text-xs mt-1">'+safe(r.account_holder)+' · '+safe(r.bank_country)+' · account ending '+safe(String(r.account_number||'').slice(-4))+'</div><div class="muted text-xs mt-1">'+safe(r.user_id.slice(0,8))+' · '+new Date(r.time).toLocaleString()+'</div></div><span class="pill" style="background:#352a25;color:#ffd59a">'+safe(r.status)+'</span></div><p class="muted text-xs mt-2">'+safe(r.eligibility_note)+'</p></div>').join(''):'<div class="muted py-5">No withdrawal eligibility checks yet.</div>';
+  }
+
   // The top-up request is stored in the database and remains pending until an admin reviews it.
   document.getElementById('topupForm').onsubmit = async e => {
     e.preventDefault();
