@@ -685,9 +685,9 @@
     if(!Number.isFinite(amount)||amount<=0) return toastSafe('Enter a valid order size.');
     if(amount>totalBalance()) return toastSafe('Order size exceeds simulated buying power.');
     const {error}=await client.from('simulated_orders').insert({user_id:user.id,asset_id:id,side:document.getElementById('tradeSide').value,notional_usd:amount,reference_price:p,execution_mode:'simulated',status:'open'});
-    if(error) return toastSafe('Simulated order could not be saved: '+error.message);
-    log('Simulated order placed',document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));
-    await reloadAndToast('Simulated order saved. No exchange order was sent.');
+    if(error) return toastSafe('Demo trade could not be saved: '+error.message);
+    log('Demo trade placed',document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));
+    await reloadAndToast('Demo trade saved to your account activity. No exchange order was sent.');
   };
   closeOrder = async function(id) {
     const o=state.orders.find(x=>x.id===id&&x.status==='Open');
@@ -695,8 +695,8 @@
     const pnl=Number(orderPnl(o).toFixed(2));
     const {error}=await client.from('simulated_orders').update({status:'closed',realized_pnl:pnl,closed_at:new Date().toISOString()}).eq('id',id).eq('user_id',user.id).eq('status','open');
     if(error) return toastSafe('Could not close simulated position: '+error.message);
-    log('Simulated position closed',o.symbol+' · realized P/L '+(pnl>=0?'+':'−')+money(Math.abs(pnl)));
-    await reloadAndToast('Simulated position closed.');
+    log('Demo position closed',o.symbol+' · realized P/L '+(pnl>=0?'+':'−')+money(Math.abs(pnl)));
+    await reloadAndToast('Demo position closed and recorded in your account activity.');
   };
   // Do not allow preview-only role switching or local reset to bypass cloud authentication.
   window.apexSupabase = client;
