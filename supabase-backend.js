@@ -510,7 +510,7 @@
   function refreshWithdrawalCountryOptions(){
     if(!withdrawCountryEl)return;
     const previous=withdrawCountryEl.value||'Nigeria';
-    const names=COUNTRY_CODES.map(code=>({code,name:code==='OTHER'?'Other / Other region':new Intl.DisplayNames(['en'],{type:'region'}).of(code)||code,label:code==='OTHER'?'Other / Other region':new Intl.DisplayNames([document.documentElement.lang||'en'],{type:'region'}).of(code)||code}));
+    const priority=['NG','US','MX','GB','CA','GH','KE','ZA','IN','AU'];const ordered=[...priority,...COUNTRY_CODES.filter(code=>!priority.includes(code)&&code!=='OTHER'),'OTHER'];const names=ordered.map(code=>({code,name:code==='OTHER'?'Other / Other region':code==='US'?'United States':code==='NG'?'Nigeria':code==='MX'?'Mexico':code==='GB'?'United Kingdom':new Intl.DisplayNames(['en'],{type:'region'}).of(code)||code,label:code==='OTHER'?'Other / Other region':code==='US'?'United States':code==='NG'?'Nigeria':code==='MX'?'Mexico':code==='GB'?'United Kingdom':new Intl.DisplayNames([document.documentElement.lang||'en'],{type:'region'}).of(code)||code}));
     withdrawCountryEl.innerHTML=names.map(c=>'<option value="'+safe(c.name)+'" data-code="'+c.code+'">'+countryFlag(c.code)+' '+safe(c.label)+'</option>').join('');
     withdrawCountryEl.value=names.some(c=>c.name===previous)?previous:(names.find(c=>c.code==='NG')?.name||'Nigeria');
   }
@@ -598,10 +598,13 @@
   reviewRequest = async function(id, status) {
     if (state.role !== 'admin') return toastSafe('Administrator access required.');
     const statusValue = status.toLowerCase();
+    const request = (state.requests||[]).find(r=>r.id===id);
+    if(!request) return toastSafe('Funding request not found. Refresh and try again.');
+    if(statusValue==='approved'&&!confirm('Before approving '+money(request.amount)+', confirm that you independently verified the payment was actually received. Approval will add this amount to the customer’s available platform trading balance. This does not send money or place an external exchange trade. Continue only if verified.')) return;
     const { error } = await client.from('topup_requests').update({status:statusValue,reviewed_by:user.id,reviewed_at:new Date().toISOString()}).eq('id',id).eq('status','pending');
     if (error) return toastSafe('Request review failed: '+error.message);
-    log('Top-up request '+statusValue, 'Request status updated; no funds were moved.');
-    await reloadAndToast('Request marked '+statusValue+'. No balance was credited.');
+    log(statusValue==='approved'?'Funding approved and balance credited':'Funding request rejected', statusValue==='approved'?money(request.amount)+' added to the customer trading balance after admin payment verification.':'Request rejected; no balance credited.',statusValue==='approved'?money(request.amount):'');
+    await reloadAndToast(statusValue==='approved'?'Funding approved. The verified amount is now available in the customer trading balance.':'Funding request rejected. No balance was credited.');
   };
   // Gift terms are global and stored in the database, not only this browser.
   document.getElementById('giftForm').onsubmit = async e => {
@@ -683,11 +686,11 @@
     const a=assets.find(x=>x[0]===id);
     if(!p) return toastSafe('No current price available. Refresh the market feed first.');
     if(!Number.isFinite(amount)||amount<=0) return toastSafe('Enter a valid order size.');
-    if(amount>totalBalance()) return toastSafe('Order size exceeds simulated buying power.');
+    if(amount>totalBalance()) return toastSafe('Insufficient available trading balance. Only funding requests approved after payment verification are available to trade.');
     const {error}=await client.from('simulated_orders').insert({user_id:user.id,asset_id:id,side:document.getElementById('tradeSide').value,notional_usd:amount,reference_price:p,execution_mode:'simulated',status:'open'});
-    if(error) return toastSafe('Demo trade could not be saved: '+error.message);
-    log('Demo trade placed',document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));
-    await reloadAndToast('Demo trade saved to your account activity. No exchange order was sent.');
+    if(error) return toastSafe('Trade could not be saved: '+error.message);
+    log('Trade placed',document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));
+    await reloadAndToast('Trade saved. Portfolio value and position P/L will update when public prices refresh. This platform has not sent an order to an external exchange.');
   };
   closeOrder = async function(id) {
     const o=state.orders.find(x=>x.id===id&&x.status==='Open');
@@ -695,8 +698,8 @@
     const pnl=Number(orderPnl(o).toFixed(2));
     const {error}=await client.from('simulated_orders').update({status:'closed',realized_pnl:pnl,closed_at:new Date().toISOString()}).eq('id',id).eq('user_id',user.id).eq('status','open');
     if(error) return toastSafe('Could not close simulated position: '+error.message);
-    log('Demo position closed',o.symbol+' · realized P/L '+(pnl>=0?'+':'−')+money(Math.abs(pnl)));
-    await reloadAndToast('Demo position closed and recorded in your account activity.');
+    log('Position closed',o.symbol+' · realized P/L '+(pnl>=0?'+':'−')+money(Math.abs(pnl)));
+    await reloadAndToast('Position closed and recorded. Realized P/L has been added to your platform trading balance.');
   };
   // Do not allow preview-only role switching or local reset to bypass cloud authentication.
   window.apexSupabase = client;
