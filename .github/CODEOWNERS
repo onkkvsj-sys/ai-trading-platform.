@@ -1,0 +1,3 @@
+# Require owner review requests for repository changes.
+* @onkkvsj-sys
+/.github/CODEOWNERS @onkkvsj-sys
