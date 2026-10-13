@@ -397,6 +397,28 @@ with check (bucket_id='profile-photos' and private.is_active_account() and (stor
 
 -- Private withdrawal destination requests. These are eligibility records only;
 -- no real cash balance or payout provider is connected by this schema.
+create table if not exists public.account_credits (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount numeric(18,2) not null check (amount > 0),
+  credit_type text not null check (credit_type in ('deposit','earnings')),
+  note text not null default '' check (char_length(note) <= 500),
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now()
+);
+alter table public.account_credits enable row level security;
+drop policy if exists account_credits_read_owner_or_admin on public.account_credits;
+create policy account_credits_read_owner_or_admin on public.account_credits for select to authenticated
+using (private.is_active_account() and (user_id = (select auth.uid()) or private.is_admin()));
+drop policy if exists account_credits_insert_admin_only on public.account_credits;
+create policy account_credits_insert_admin_only on public.account_credits for insert to authenticated
+with check (private.is_active_account() and private.is_admin() and created_by = (select auth.uid()));
+drop policy if exists account_credits_no_update on public.account_credits;
+create policy account_credits_no_update on public.account_credits for update to authenticated using (false) with check (false);
+drop policy if exists account_credits_no_delete on public.account_credits;
+create policy account_credits_no_delete on public.account_credits for delete to authenticated using (false);
+create index if not exists account_credits_user_type_created_idx on public.account_credits(user_id, credit_type, created_at desc);
+
 create table if not exists public.withdrawal_requests (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -418,10 +440,22 @@ drop policy if exists withdrawal_read_owner_or_admin on public.withdrawal_reques
 create policy withdrawal_read_owner_or_admin on public.withdrawal_requests for select to authenticated
 using (private.is_active_account() and (user_id=(select auth.uid()) or private.is_admin()));
 drop policy if exists withdrawal_create_own_ineligible on public.withdrawal_requests;
-create policy withdrawal_create_own_ineligible on public.withdrawal_requests for insert to authenticated
-with check (private.is_active_account() and user_id=(select auth.uid()) and status='ineligible'
-and reviewed_by is null and reviewed_at is null
-and eligibility_note='No verified cash balance or payment processor is connected.');
+drop policy if exists withdrawal_create_own_pending_from_earnings on public.withdrawal_requests;
+create policy withdrawal_create_own_pending_from_earnings on public.withdrawal_requests
+for insert to authenticated
+with check (
+  private.is_active_account()
+  and user_id = (select auth.uid())
+  and status = 'pending'
+  and reviewed_by is null
+  and reviewed_at is null
+  and eligibility_note = 'Received and held for administrator review. Actual payment and available cash must be verified before any payout.'
+  and amount <= greatest(0,
+    coalesce((select sum(o.realized_pnl) from public.simulated_orders o where o.user_id = (select auth.uid()) and o.status = 'closed'),0)
+    + coalesce((select sum(c.amount) from public.account_credits c where c.user_id = (select auth.uid()) and c.credit_type = 'earnings'),0)
+    - coalesce((select sum(w.amount) from public.withdrawal_requests w where w.user_id = (select auth.uid()) and w.status in ('pending','approved','paid')),0)
+  )
+);
 drop policy if exists withdrawal_admin_review on public.withdrawal_requests;
 create policy withdrawal_admin_review on public.withdrawal_requests for update to authenticated
 using (private.is_active_account() and private.is_admin()) with check (private.is_active_account() and private.is_admin());
