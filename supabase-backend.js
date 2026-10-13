@@ -133,12 +133,10 @@
     document.getElementById('layout').classList.remove('hidden');
     cloudReady = true;
     await loadCloud();
-    if (state.role !== 'admin') {
-      document.querySelector('[data-page="admin"]').classList.add('hidden');
-      if (document.getElementById('page-admin').classList.contains('active')) go('overview');
-    } else {
-      document.querySelector('[data-page="admin"]').classList.remove('hidden');
-    }
+    // Keep the workspaces separate after every authenticated login.
+    document.querySelectorAll('.customer-only').forEach(el => el.classList.toggle('hidden', state.role === 'admin'));
+    document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', state.role !== 'admin'));
+    go(state.role === 'admin' ? 'admin' : 'overview');
     renderAll();
     statusLine('');
   }
@@ -233,6 +231,10 @@
   const originalGo = go;
   go = function(page) {
     if (page === 'admin' && state.role !== 'admin') { toastSafe('Administrator access required.'); return; }
+    if (state.role === 'admin' && !['admin','messages'].includes(page)) {
+      toastSafe('That page belongs to the customer workspace.');
+      return;
+    }
     return originalGo(page);
   };
   document.getElementById('roleBtn').onclick = () => toastSafe('Account role is verified by Supabase; it cannot be switched from this button.');
