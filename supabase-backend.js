@@ -733,7 +733,7 @@
     if (!owner || !state.conversations.some(c => c.id === owner)) return toastSafe('Open the customer conversation first.');
     const amount = Number(document.getElementById('adminTopupRequestAmount')?.value);
     if (!Number.isFinite(amount) || amount <= 0) return toastSafe('Enter a valid top-up amount.');
-    const body = 'TOP-UP REQUEST · ' + money(amount) + '\\nPlease submit a top-up request for this amount using Add funds in your dashboard. Your request will remain pending until it is reviewed. This message is a request only; it does not charge your account or confirm a deposit.';
+    const body = 'TOP-UP REQUEST · ' + money(amount) + '\nPlease submit a top-up request for this amount using Add funds in your dashboard. Your request will remain pending until it is reviewed. This message is a request only; it does not charge your account or confirm a deposit.';
     const { error } = await client.from('messages').insert({conversation_owner_id:owner,sender_id:user.id,body,attachment_path:null,attachment_mime:null,attachment_name:null});
     if (error) return toastSafe('Top-up request message could not be sent: '+error.message);
     document.getElementById('adminTopupRequestAmount').value='';
