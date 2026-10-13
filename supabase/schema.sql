@@ -406,8 +406,9 @@ create table if not exists public.withdrawal_requests (
   bank_name text not null,
   account_holder text not null,
   account_number text not null,
-  status text not null default 'ineligible' check (status in ('ineligible','pending','approved','rejected','paid','cancelled')),
+  status text not null default 'ineligible' check (status in ('ineligible','pending','approved','rejected','topup_required','paid','cancelled')),
   eligibility_note text not null default 'No verified cash balance or payment processor is connected.',
+  admin_message text not null default '',
   reviewed_by uuid references auth.users(id) on delete set null,
   reviewed_at timestamptz,
   created_at timestamptz not null default now()
