@@ -251,6 +251,18 @@
     }
     state.role = profile.role === 'admin' ? 'admin' : 'customer';
     window.apexCurrentRole = state.role;
+    // Apply the correct workspace immediately, before optional profile, inbox,
+    // or welcome-modal setup can interrupt activation. This prevents an admin
+    // account from briefly or permanently displaying the customer overview.
+    document.querySelectorAll('.customer-only').forEach(el => el.classList.toggle('hidden', state.role === 'admin'));
+    document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', state.role !== 'admin'));
+    const immediateHome = state.role === 'admin' ? 'admin' : 'overview';
+    document.querySelectorAll('.tabpage').forEach(el => el.classList.toggle('active', el.id === 'page-' + immediateHome));
+    document.querySelectorAll('[data-page]').forEach(el => el.classList.toggle('active', el.dataset.page === immediateHome));
+    const immediateTitle = document.getElementById('pageTitle');
+    const immediateSubtitle = document.getElementById('pageSubtitle');
+    if (immediateTitle) immediateTitle.textContent = immediateHome === 'admin' ? 'Admin center' : 'Market overview';
+    if (immediateSubtitle) immediateSubtitle.textContent = immediateHome === 'admin' ? 'Manage the platform, customers and funding requests.' : 'Your market desk, strategy signals and portfolio at a glance.';
     if(accountJustCreated && state.role==='customer') localStorage.setItem('apex-show-account-success-'+user.id,'1');
     const languageControl = document.getElementById('languageSelect');
     if (languageControl) languageControl.classList.toggle('hidden', state.role === 'admin');
