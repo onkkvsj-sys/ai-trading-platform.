@@ -489,8 +489,10 @@
     const country=document.getElementById('withdrawCountry')?.value||'Nigeria';
     const holder=document.getElementById('withdrawHolder')?.value.trim()||'Account holder will appear here';
     const raw=document.getElementById('withdrawAccount')?.value.replace(/\D/g,'')||'';
-    document.getElementById('withdrawPreviewBank').textContent=bank;
-    document.getElementById('withdrawPreviewCountry').textContent=country;
+    const bankInitials=String(bank||'BANK').split(/\\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase();
+    document.getElementById('withdrawPreviewBank').innerHTML='<span class="bank-mark" style="width:34px;height:34px;flex-basis:34px;border-radius:10px;font-size:9px">'+safe(bankInitials)+'</span><span>'+safe(bank)+'</span>';
+    const countryCode=withdrawCountryEl?.selectedOptions?.[0]?.dataset?.code||'OTHER';
+    document.getElementById('withdrawPreviewCountry').textContent=countryFlag(countryCode)+' '+country;
     document.getElementById('withdrawPreviewHolder').textContent=holder;
     document.getElementById('withdrawPreviewAccount').textContent=raw.length?'•••• •••• '+raw.slice(-4):'•••• ••••';
   }
