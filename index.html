@@ -474,10 +474,10 @@ body{background:radial-gradient(ellipse at 4% 2%,#40172b 0,transparent 26%),radi
   /* Keep the page stable: only chart strokes move, never dashboard cards or layout. */
   #adminActivityPath,#adminRequestPath{animation:adminLiveLine 5s linear infinite!important;stroke-dasharray:10 8;transition:d 700ms ease}
   #adminRequestPath{animation-duration:6.5s!important}
-  .admin-sparkline path{transform-box:fill-box;transform-origin:center;animation:adminSparklineUpDown 2.8s ease-in-out infinite alternate!important}
-  .admin-sparkline path:nth-child(2n){animation-delay:-.9s!important}
+  .admin-sparkline .spark-path{transform-box:fill-box;transform-origin:center;animation:adminSparklineUpDown 2.8s ease-in-out infinite alternate!important}
+  .admin-live-card:nth-child(2n) .spark-path{animation-delay:-1.2s!important}
   @keyframes adminSparklineUpDown{0%{transform:translateY(3px)}100%{transform:translateY(-7px)}}
-  @media(prefers-reduced-motion:reduce){#adminActivityPath,#adminRequestPath,.admin-sparkline path{animation:none!important;transition:none!important}}
+  @media(prefers-reduced-motion:reduce){#adminActivityPath,#adminRequestPath,.admin-sparkline .spark-path{animation:none!important;transition:none!important}}
 </style>
 
 
@@ -921,5 +921,5 @@ apexObserveCustomerTranslations();
 renderAll();$('roleBtn').textContent='View: '+(state.role==='admin'?'Admin':'Customer');fetchPrices();setInterval(fetchPrices,15000);
 setInterval(()=>{if(!document.hidden&&document.getElementById('page-markets')?.classList.contains('active'))renderChart()},5000);
 </script>
-<script src="./supabase-backend.js?v=20261014-live-admin-requests-3"></script>
+<script src="./supabase-backend.js?v=20261014-live-admin-requests-4"></script>
 </body></html>
