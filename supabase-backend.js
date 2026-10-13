@@ -849,30 +849,60 @@
     const statusMeta={pending:['PENDING · REVIEW','#c4b5fd'],requested:['PENDING · REVIEW','#c4b5fd'],under_review:['UNDER REVIEW','#c4b5fd']};
     target.innerHTML=rows.length?rows.slice().reverse().map(r=>{const status=String(r.status||'pending').toLowerCase(),meta=statusMeta[status]||['PENDING · REVIEW','#c4b5fd'];return '<article class="table-row py-4"><div class="flex flex-wrap justify-between gap-3"><div><div class="font-semibold">'+safe(money(r.amount))+' · '+safe(r.bank_name)+'</div><div class="muted text-xs mt-1">'+safe(r.account_holder)+' · '+safe(r.bank_country)+' · account ending '+safe(String(r.account_number||'').slice(-4))+'</div><div class="muted text-xs mt-1">Customer '+safe(String(r.user_id||'').slice(0,8))+' · '+new Date(r.time).toLocaleString()+'</div><div class="muted text-xs mt-1">Reference '+safe(String(r.id||'').slice(0,8).toUpperCase())+'</div></div><span class="pill" style="background:'+meta[1]+'20;color:'+meta[1]+'">'+safe(meta[0])+'</span></div><label class="muted text-xs block mt-4 mb-2" for="withdrawAdminMessage-'+safe(r.id)+'">Message shown in this customer’s dashboard</label><textarea class="field" rows="3" maxlength="1000" id="withdrawAdminMessage-'+safe(r.id)+'" data-withdraw-message="'+safe(r.id)+'" placeholder="Write a message for this customer…">'+safe(r.admin_message||'')+'</textarea><div class="flex flex-wrap gap-2 mt-3"><button class="btn btn-primary" data-withdraw-review="approved" data-withdraw-id="'+safe(r.id)+'">Approve request</button><button class="btn" style="border-color:#34d399;color:#6ee7b7" data-withdraw-review="paid" data-withdraw-id="'+safe(r.id)+'">Mark paid</button><button class="btn btn-danger" data-withdraw-review="rejected" data-withdraw-id="'+safe(r.id)+'">Reject request</button><button class="btn" style="border-color:#60a5fa;color:#93c5fd" data-withdraw-review="topup_required" data-withdraw-id="'+safe(r.id)+'">Request top-up</button><button class="btn" data-withdraw-review="message_only" data-withdraw-id="'+safe(r.id)+'">Send / edit message</button><button class="btn admin-queue-delete" data-withdraw-delete="'+safe(r.id)+'">Delete request</button></div><p class="muted text-xs mt-2">After a status change, this item leaves the pending review queue. Approval alone does not confirm a bank payout.</p></article>'}).join(''):'<div class="muted py-5">No pending withdrawal requests. Reviewed requests are removed from this queue.</div>';
     target.querySelectorAll('[data-withdraw-review]').forEach(btn=>btn.onclick=async()=>{
-      if(state.role!=='admin')return toastSafe('Administrator access required.');
+      if(state.role!=='admin'||!user)return toastSafe('Administrator access required.');
       const id=btn.dataset.withdrawId,next=btn.dataset.withdrawReview,field=target.querySelector('[data-withdraw-message="'+id+'"]');
+      const request=(state.withdrawals||[]).find(r=>String(r.id)===String(id));
+      if(!request)return toastSafe('Withdrawal request was not found. Refresh and try again.');
       const custom=(field?.value||'').trim();
-      const defaults={approved:'Your withdrawal request has been approved by the administrator. This is platform approval; a bank transfer is not confirmed yet.',paid:'Your withdrawal has been marked paid by the administrator. Contact support if the funds do not arrive.',rejected:'Your withdrawal request has been rejected by the administrator. Contact support if you need more information.',topup_required:'Please top up your account before proceeding with this withdrawal request.'};
+      const defaults={
+        approved:'Your withdrawal request has been approved by the administrator. The requested amount remains reserved from your available balance. This is not confirmation of a bank transfer.',
+        paid:'Your withdrawal has been marked paid by the administrator after payout confirmation.',
+        rejected:'Your withdrawal request has been rejected. The reserved amount has been returned to your available platform balance.',
+        topup_required:'Please submit a top-up request before this withdrawal can proceed.'
+      };
       const message=custom||(next==='message_only'?'':defaults[next]||'');
       if(next==='message_only'&&!message)return toastSafe('Write a message for the customer first.');
-      const patch={admin_message:message};
-      if(next!=='message_only'){
-        patch.status=next;patch.eligibility_note=next==='approved'?'Approved by administrator; payout not yet confirmed.':next==='paid'?'Marked paid by administrator after payout confirmation.':next==='rejected'?'Rejected by administrator. No payout was sent.':'Administrator requested a top-up before this withdrawal can proceed.';
-        patch.reviewed_by=user.id;patch.reviewed_at=new Date().toISOString();
+      if(next==='approved'&&!window.confirm('Approve this withdrawal request? Its amount will remain reserved from the customer’s available balance. This does NOT send a bank transfer.'))return;
+      if(next==='paid'&&!window.confirm('Mark this withdrawal PAID only if the real payout has already been completed and confirmed. Continue?'))return;
+      if(next==='rejected'&&!window.confirm('Reject this withdrawal? The reserved amount will be released back to the customer’s available balance. Continue?'))return;
+      if(next==='topup_required'&&!window.confirm('Request a top-up from the customer? The request will show TOP-UP REQUIRED and its amount will remain reserved until you review it again.'))return;
+      if(next==='message_only'){
+        btn.disabled=true;
+        try{
+          const {data:updated,error}=await client.from('withdrawal_requests').update({admin_message:message}).eq('id',id).select('id,status').maybeSingle();
+          if(error)throw error;
+          if(!updated)throw new Error('No request was updated. Check that your administrator session is still active.');
+          log('Withdrawal message sent','Message saved for customer '+String(request.user_id||'').slice(0,8)+': '+message);
+          await reloadAndToast('Message saved. The customer can read it on Overview, and the withdrawal status has not changed.');
+        }catch(err){toastSafe('Could not send message: '+(err?.message||String(err)))}
+        finally{btn.disabled=false}
+        return;
       }
-      const {error}=await client.from('withdrawal_requests').update(patch).eq('id',id);
-      if(error)return toastSafe('Could not update customer request: '+error.message);
-      log(next==='message_only'?'Withdrawal message sent':'Withdrawal request '+next,message);
-      await reloadAndToast(next==='message_only'?'Message saved and sent to the customer dashboard.':'Request updated. It has been removed from the pending review queue.');
+      btn.disabled=true;
+      const patch={status:next,admin_message:message,reviewed_by:user.id,reviewed_at:new Date().toISOString()};
+      // Preserve fund_source/deposit/earnings allocation. Balance calculations use it to keep approved withdrawals deducted and release rejected requests correctly.
+      const {error}=await client.from('withdrawal_requests').update(patch).eq('id',id).select('id,status').maybeSingle();
+      if(error){btn.disabled=false;return toastSafe('Could not update withdrawal request: '+error.message)}
+      const eventText=next==='approved'?'Withdrawal approved; amount remains reserved':next==='paid'?'Withdrawal marked paid after payout confirmation':next==='rejected'?'Withdrawal rejected; reserved funds released': 'Top-up requested for withdrawal';
+      log(eventText,'Customer '+String(request.user_id||'').slice(0,8)+' · '+money(request.amount)+' · '+(message||defaults[next]||''));
+      await reloadAndToast(next==='approved'?'Withdrawal approved. The amount remains deducted from available funds; no transfer was sent.':next==='paid'?'Withdrawal marked paid.':next==='rejected'?'Withdrawal rejected. The reserved amount is available to the customer again.':'Top-up requested. The customer can read your message and submit a top-up request.');
+      btn.disabled=false;
     });
     target.querySelectorAll('[data-withdraw-delete]').forEach(btn=>btn.onclick=async()=>{
       if(state.role!=='admin'||!user)return toastSafe('Administrator access required.');
       const id=btn.dataset.withdrawDelete;
-      if(!window.confirm('Delete this withdrawal request record? This does not cancel or reverse any external bank transaction.'))return;
-      const {error}=await client.from('withdrawal_requests').delete().eq('id',id);
-      if(error)return toastSafe('Could not delete withdrawal request: '+error.message);
-      log('Withdrawal request deleted','Deleted request '+id.slice(0,8));
-      await reloadAndToast('Withdrawal request deleted and removed from the queue.');
+      const request=(state.withdrawals||[]).find(r=>String(r.id)===String(id));
+      if(!request)return toastSafe('Withdrawal request was not found. Refresh and try again.');
+      if(!window.confirm('Delete this withdrawal request record? Any amount reserved by this request will be released back to the customer’s available platform balance. This does not reverse any external bank transaction.'))return;
+      btn.disabled=true;
+      try{
+        const {data:deleted,error}=await client.from('withdrawal_requests').delete().eq('id',id).select('id').maybeSingle();
+        if(error)throw error;
+        if(!deleted)throw new Error('No request was deleted. Check that your administrator session is still active.');
+        log('Withdrawal request deleted','Deleted request '+String(id).slice(0,8)+'; any platform reservation released.');
+        await reloadAndToast('Withdrawal request deleted. Its reserved amount has been released to the customer’s available platform balance.');
+      }catch(err){toastSafe('Could not delete withdrawal request: '+(err?.message||String(err)))}
+      finally{btn.disabled=false}
     });
   }
 
