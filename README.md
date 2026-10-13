@@ -9,7 +9,8 @@ The interface is designed to feel like a polished trading terminal while keeping
 ### Customer workspace
 - Email/password registration, sign-in, sign-out, and account recovery through Supabase Auth.
 - Market overview and price charts powered by public CoinGecko market data. Quote availability and refresh frequency depend on the provider.
-- Account overview with separate records for deposits/top-ups, platform-recorded trading results, earnings credits, and withdrawal requests.
+- Prominent dashboard cards show **Total Deposits** and **My Earnings** side by side. For example, a $500 recorded deposit and $0 earnings display as **$500.00 deposits** and **$0.00 earnings**; an administrator earnings credit updates the earnings card after the customer data refreshes.
+- Account overview and ledger separate deposits/top-ups, platform-recorded trading results, earnings credits, and withdrawal requests.
 - Funding-request submission and status history.
 - Private customer/administrator messaging, including photo and audio attachments stored in a private Supabase Storage bucket.
 - Activity history and CSV export.
@@ -18,7 +19,7 @@ The interface is designed to feel like a polished trading terminal while keeping
 ### Administrator workspace
 - Administrator-only customer and platform controls, gated by the customer's database role.
 - Review of customer funding and withdrawal requests.
-- A customer-credit form that records the exact amount and one of two categories:
+- A customer-credit form that records the exact amount and one of two categories. The dashboard reloads the account ledger after a credit is saved:
   - **Deposit / top-up:** added to the platform's available trading balance.
   - **Earnings credit:** displayed separately and excluded from available trading funds.
 - Global welcome-benefit settings and customer support tools.
