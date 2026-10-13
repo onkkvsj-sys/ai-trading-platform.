@@ -329,23 +329,29 @@
       <form class="table-row py-4 flex flex-wrap items-end gap-3" data-customer-form="${safe(c.id)}">
         <div class="flex items-center gap-3 w-full"><div class="w-11 h-11 rounded-full overflow-hidden border border-[#31536a] bg-[#183b4a] flex items-center justify-center green font-bold">${c.avatar_url?`<img alt="Customer profile" src="${safe(c.avatar_url)}" class="w-full h-full object-cover">`:safe((c.display_name||"C").slice(0,1).toUpperCase())}</div><div class="flex-1 min-w-[180px]">
           <label class="muted text-xs block mb-2">Display name</label>
-          <input class="field" name="display_name" maxlength="80" value="${safe(c.display_name)}" placeholder="Customer name">
-          <div class="muted text-[10px] mt-2 break-all">Account ID: ${safe(c.id)} · Role: ${safe(c.role)} · Country: ${safe(c.country_code||"Not set")}</div></div></div>
+          <input class="field mb-2" name="display_name" maxlength="80" value="${safe(c.display_name)}" placeholder="Customer name">
+          <select class="field mb-2" name="country_code"><option value="">Select country</option><option value="NG" ${c.country_code==='NG'?'selected':''}>🇳🇬 Nigeria</option><option value="MX" ${c.country_code==='MX'?'selected':''}>🇲🇽 Mexico</option><option value="US" ${c.country_code==='US'?'selected':''}>🇺🇸 United States</option><option value="GB" ${c.country_code==='GB'?'selected':''}>🇬🇧 United Kingdom</option><option value="ES" ${c.country_code==='ES'?'selected':''}>🇪🇸 Spain</option><option value="CO" ${c.country_code==='CO'?'selected':''}>🇨🇴 Colombia</option><option value="AR" ${c.country_code==='AR'?'selected':''}>🇦🇷 Argentina</option><option value="BR" ${c.country_code==='BR'?'selected':''}>🇧🇷 Brazil</option><option value="CA" ${c.country_code==='CA'?'selected':''}>🇨🇦 Canada</option><option value="GH" ${c.country_code==='GH'?'selected':''}>🇬🇭 Ghana</option><option value="KE" ${c.country_code==='KE'?'selected':''}>🇰🇪 Kenya</option><option value="ZA" ${c.country_code==='ZA'?'selected':''}>🇿🇦 South Africa</option><option value="IN" ${c.country_code==='IN'?'selected':''}>🇮🇳 India</option><option value="PH" ${c.country_code==='PH'?'selected':''}>🇵🇭 Philippines</option><option value="OTHER" ${c.country_code==='OTHER'?'selected':''}>🌐 Other</option></select>
+          <select class="field" name="role" ${c.id===user.id?'disabled':''}><option value="customer" ${c.role==='customer'?'selected':''}>Customer role</option><option value="admin" ${c.role==='admin'?'selected':''}>Admin role</option></select>
+          <div class="muted text-[10px] mt-2 break-all">Account ID: ${safe(c.id)} · Country: ${safe(c.country_code||"Not set")}</div></div></div>
         </div>
-        <button class="btn btn-primary" type="submit">Save customer</button>
+        <button class="btn btn-primary" type="submit">Save account</button>
       </form>`).join('') : '<div class="muted py-5">No customer accounts found.</div>';
     target.querySelectorAll('[data-customer-form]').forEach(form => form.onsubmit = async e => {
       e.preventDefault();
       if (state.role !== 'admin' || !user) return toastSafe('Administrator access required.');
       const id = form.dataset.customerForm;
-      const display_name = String(new FormData(form).get('display_name') || '').trim().slice(0,80);
+      const formData = new FormData(form);
+      const display_name = String(formData.get('display_name') || '').trim().slice(0,80);
+      const country_code = String(formData.get('country_code') || '');
+      const patch = {display_name,country_code,updated_at:new Date().toISOString()};
+      if (id !== user.id && ['customer','admin'].includes(formData.get('role'))) patch.role = formData.get('role');
       const button = form.querySelector('button[type="submit"]');
       button.disabled = true;
-      const { error } = await client.from('profiles').update({display_name,updated_at:new Date().toISOString()}).eq('id',id);
+      const { error } = await client.from('profiles').update(patch).eq('id',id);
       button.disabled = false;
-      if (error) return toastSafe('Customer profile update failed: '+error.message);
-      log('Customer profile updated','Display name updated for account '+id.slice(0,8));
-      await reloadAndToast('Customer display name saved.');
+      if (error) return toastSafe('Customer account update failed: '+error.message);
+      log('Customer account updated','Profile settings updated for account '+id.slice(0,8));
+      await reloadAndToast('Customer account saved.');
     });
   }
   renderAll = function() { originalRenderAll(); renderCustomers(); renderAdminSummary(); };
