@@ -1,34 +1,34 @@
 # Apex Terminal — Private AI Trading Platform
 
-A mobile-friendly trading dashboard preview with live public market-price lookups and **simulated execution only**.
+A polished, mobile-friendly trading terminal preview with public cryptocurrency prices and simulated order execution.
 
-## What's included
+## Included in this branch
 
-- `index.html` — responsive terminal UI, public crypto price feed, chart/watchlist, transparent strategy summary, simulated orders, top-up request workflow, editable welcome-credit settings, preview support inbox with image/audio attachments, local activity ledger, CSV export.
-- `supabase/schema.sql` — starter PostgreSQL schema and row-level security policies for authenticated profiles, settings, top-up requests, private messages, activity events, and simulated orders.
+- `index.html` — responsive trading terminal, market watchlist and chart, public price lookups, descriptive market summary, simulated order creation and closing, open-position P/L estimates, editable welcome-credit card and admin settings, top-up request submission and approval queue, customer/admin preview inbox with image/audio attachments, activity ledger and CSV export.
+- `supabase/schema.sql` — starter schema and row-level security policies for authenticated profiles, settings, top-up requests, private messages, activity events, and simulated orders.
 
-## Important current limitations
+## Status and limitations
 
-- The current browser UI is a **preview**. It stores its state in the current browser's local storage, so it is not yet persistent across devices or shared with another customer/admin session.
-- The admin/customer switch is a visual preview control, **not authentication**. Do not deploy the current static page as a live financial service.
-- Market data is fetched from a public CoinGecko endpoint when available. The feed may fail or be rate limited; the UI should show unavailable data rather than invent prices.
-- Orders are recorded as simulated previews only. No exchange orders, bank transfers, deposits, or withdrawals are sent.
-- A top-up request is not proof of payment. Before crediting real money, verify payment through a trusted payment provider/server-side webhook. Do not ask customers to pay an unrelated fee to release a withdrawal.
-- The welcome credit is promotional preview credit, not cash and not withdrawable.
+- The top-right `PREVIEW` marker is intentionally discreet. Simulated execution is identified where users create and review preview orders; the rest of the UI avoids repeated demo banners.
+- Browser state is currently stored in local storage. It does not yet provide shared customer accounts, durable cross-device messages, or server persistence.
+- The admin/customer switch is a visual preview control, not authentication. Do not expose this static preview as a live multi-customer service.
+- Public crypto prices are fetched from CoinGecko when available. The provider can rate-limit or fail; unavailable data is shown as unavailable rather than invented.
+- Orders and P/L calculations are simulated previews only. No exchange order, bank transfer, deposit, or withdrawal is executed.
+- A top-up request does not prove payment. Real balance credits require payment verification on a trusted server-side provider webhook.
 
-## To enable persistent multi-user use
+## Steps required for a complete production deployment
 
-1. Create a Supabase project and enable email/password authentication.
-2. Apply `supabase/schema.sql` in the Supabase SQL editor.
-3. Sign in as the intended owner, verify the Auth user UUID, and securely promote that profile to `admin` using the SQL comment at the end of the schema. Do not allow client-side role changes.
-4. Create a **private** Storage bucket named `chat-attachments` and configure object policies so only the conversation owner and admin can access attachments. Use signed URLs for display.
-5. Add a backend/serverless API to validate sessions and roles, perform top-up review atomically, verify real payments server-side, and persist/retrieve messages and attachments. Never put a Supabase service-role key or exchange secret in browser code.
-6. Replace localStorage preview state with authenticated Supabase queries and realtime subscriptions; test customer/admin isolation before launch.
+1. Create or select a dedicated Supabase project for this trading platform. Do not reuse unrelated project databases.
+2. Enable Supabase Auth, apply `supabase/schema.sql`, and securely promote the verified owner profile to admin using the SQL comment at the end of the schema.
+3. Configure a private `chat-attachments` Storage bucket with owner/admin policies and signed URLs.
+4. Add authenticated API endpoints for role-checked admin actions, payment verification, atomic top-up approval, and message/attachment operations.
+5. Connect the UI to Supabase Auth, database queries and realtime subscriptions. Remove the local-only preview switch once server-side roles are live.
+6. Test account isolation, upload access, top-up approval/rejection, and persistence on mobile before deployment.
 
 ## Deploy
 
-This is currently a static HTML preview. Open `index.html` locally or deploy the file as a static site. Configure a backend and authentication before making it available for real customer data.
+The current app is a static HTML preview. It can be reviewed on a static host, but the secure backend steps above must be completed before it is used with real customers.
 
-## Safety
+## Financial integrity
 
-This project is not a broker or financial institution. The interface makes no promise of profit. Public market prices are informational only; simulated results must not be presented as real trades or account balances.
+Public market data is informational. Simulated orders and estimates must not be represented as actual exchange executions or guaranteed returns. Do not display a transfer as completed until confirmed by the payment provider.
