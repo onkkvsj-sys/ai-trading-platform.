@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Global Capital | Institutional AI Trading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-lg text-slate-950">
+                AI
+            </div>
+            <div>
+                <h1 id="nav-title" class="font-bold text-lg tracking-wide">Apex Global Capital</h1>
+                <p id="nav-sub" class="text-xs text-slate-400">Institutional Algorithmic System</p>
+            </div>
+        </div>
+
+        <!-- Language Switcher -->
+        <div class="flex items-center space-x-4">
+            <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700 text-xs font-medium">
+                <button onclick="changeLanguage('en')" id="btn-en" class="px-3 py-1.5 rounded-md transition bg-emerald-600 text-white">EN</button>
+                <button onclick="changeLanguage('es')" id="btn-es" class="px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white">ES</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        <!-- Dynamic System Alert Banner -->
+        <div id="system-banner" class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex items-start space-x-4 text-emerald-200">
+            <svg class="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div>
+                <h4 id="banner-title" class="font-semibold text-sm">Account Status: Active & Verified</h4>
+                <p id="banner-desc" class="text-xs text-emerald-300/80 mt-1">Welcome gift bonus successfully credited. AI automated execution bot is ready for live micro-arbitrage cycles.</p>
+            </div>
+        </div>
+
+        <!-- Portfolio Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <!-- Total Balance -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <p id="label-bal" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Portfolio Balance</p>
+                <h2 id="val-balance" class="text-3xl font-bold mt-2 text-emerald-400">$6,000.00</h2>
+                <div class="mt-4 flex items-center text-xs text-emerald-500 space-x-1">
+                    <span id="label-growth">+24.8% Daily Yield Active</span>
+                </div>
+            </div>
+
+            <!-- Verification / Deposit Status -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <p id="label-dep" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Verification Deposit</p>
+                <h2 id="val-dep" class="text-3xl font-bold mt-2 text-cyan-400">$1,000.00</h2>
+                <span id="badge-dep" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Active Trade Required</span>
+            </div>
+
+            <!-- Welcome Gift Capital -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <p id="label-gift" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Welcome Gift Capital</p>
+                <h2 class="text-3xl font-bold mt-2 text-purple-400">$5,000.00</h2>
+                <span id="badge-gift" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Generated Profit Cleared</span>
+            </div>
+        </div>
+
+        <!-- Interactive Terminal Control Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-4 gap-4">
+                <div>
+                    <h3 id="panel-title" class="font-bold text-lg">AI Automated Execution Bot</h3>
+                    <p id="panel-sub" class="text-xs text-slate-400">High-frequency institutional micro-arbitrage protocol</p>
+                </div>
+                <div class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="badge-status">LIVE TRADING ACTIVE</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 pt-2">
+                <button onclick="executeTrade()" id="btn-trade" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-emerald-600/20 text-sm">
+                    Execute Active Cycle ($1,000 Deposit)
+                </button>
+                <button onclick="requestWithdrawal()" id="btn-withdraw" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold py-3 px-6 rounded-xl transition shadow-lg shadow-amber-600/20 text-sm">
+                    Request Full Payout Withdrawal
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Interactive JavaScript Simulation Logic -->
+    <script>
+        const textData = {
+            en: {
+                navTitle: "Apex Global Capital",
+                navSub: "Institutional Algorithmic System",
+                bannerTitle: "Account Status: Active & Verified",
+                bannerDesc: "Welcome gift bonus successfully credited. AI automated execution bot is ready for live micro-arbitrage cycles.",
+                labelBal: "Total Portfolio Balance",
+                labelDep: "Verification Deposit",
+                labelGift: "Welcome Gift Capital",
+                badgeDep: "Active Trade Required",
+                badgeGift: "Generated Profit Cleared",
+                panelTitle: "AI Automated Execution Bot",
+                panelSub: "High-frequency institutional micro-arbitrage protocol",
+                badgeStatus: "LIVE TRADING ACTIVE",
+                btnTrade: "Execute Active Cycle ($1,000 Deposit)",
+                btnWithdraw: "Request Full Payout Withdrawal",
+                alertTrade: "System Notice: Active trading cycle initiated. Your verification deposit is now participating in live market micro-trades.",
+                alertWithdraw: "Withdrawal Notice: System requires active trading cycle completion on verification deposit prior to total payout release."
+            },
+            es: {
+                navTitle: "Apex Global Capital",
+                navSub: "Sistema Algorítmico Institucional",
+                bannerTitle: "Estado de la Cuenta: Activa y Verificada",
+                bannerDesc: "Bono de regalo de bienvenida acreditado exitosamente. El bot de ejecución automatizada por IA está listo para ciclos de microarbitraje en vivo.",
+                labelBal: "Saldo Total del Portafolio",
+                labelDep: "Depósito de Verificación",
+                labelGift: "Capital de Regalo de Bienvenida",
+                badgeDep: "Trading Activo Requerido",
+                badgeGift: "Ganancia Generada Liquidada",
+                panelTitle: "Bot de Ejecución Automatizada por IA",
+                panelSub: "Protocolo de microarbitraje institucional de alta frecuencia",
+                badgeStatus: "TRADING EN VIVO ACTIVO",
+                btnTrade: "Ejecutar Ciclo Activo (Depósito de $1,000)",
+                btnWithdraw: "Solicitar Retiro de Saldo Total",
+                alertTrade: "Aviso del Sistema: Ciclo de trading activo iniciado. Su depósito de verificación ahora participa en microoperaciones de mercado en vivo.",
+                alertWithdraw: "Aviso de Retiro: El sistema requiere completar el ciclo de trading activo en el depósito de verificación antes de liberar el pago total."
+            }
+        };
+
+        let currentLang = 'en';
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            const t = textData[lang];
+
+            if(lang === 'en') {
+                document.getElementById('btn-en').className = "px-3 py-1.5 rounded-md transition bg-emerald-600 text-white";
+                document.getElementById('btn-es').className = "px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white";
+            } else {
+                document.getElementById('btn-es').className = "px-3 py-1.5 rounded-md transition bg-emerald-600 text-white";
+                document.getElementById('btn-en').className = "px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white";
+            }
+
+            document.getElementById('nav-title').innerText = t.navTitle;
+            document.getElementById('nav-sub').innerText = t.navSub;
+            document.getElementById('banner-title').innerText = t.bannerTitle;
+            document.getElementById('banner-desc').innerText = t.bannerDesc;
+            document.getElementById('label-bal').innerText = t.labelBal;
+            document.getElementById('label-dep').innerText = t.labelDep;
+            document.getElementById('label-gift').innerText = t.labelGift;
+            document.getElementById('badge-dep').innerText = t.badgeDep;
+            document.getElementById('badge-gift').innerText = t.badgeGift;
+            document.getElementById('panel-title').innerText = t.panelTitle;
+            document.getElementById('panel-sub').innerText = t.panelSub;
+            document.getElementById('badge-status').innerText = t.badgeStatus;
+            document.getElementById('btn-trade').innerText = t.btnTrade;
+            document.getElementById('btn-withdraw').innerText = t.btnWithdraw;
+        }
+
+        function executeTrade() {
+            alert(textData[currentLang].alertTrade);
+        }
+
+        function requestWithdrawal() {
+            alert(textData[currentLang].alertWithdraw);
+        }
+    </script>
+</body>
+      </html>
+              
