@@ -243,7 +243,7 @@
       if (dashboardRes.data?.value) dashboardSettings={...dashboardSettings,...dashboardRes.data.value};
       applyDashboardSettings();fillDashboardSettingsForm();
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
-      state.withdrawals = (withdrawalsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),currency:r.currency,bank_country:r.bank_country,bank_name:r.bank_name,account_holder:r.account_holder,account_number:r.account_number,status:r.status,eligibility_note:r.eligibility_note,time:r.created_at,reviewedAt:r.reviewed_at}));
+      state.withdrawals = (withdrawalsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),currency:r.currency,bank_country:r.bank_country,bank_name:r.bank_name,account_holder:r.account_holder,account_number:r.account_number,status:r.status,eligibility_note:r.eligibility_note,admin_message:r.admin_message||'',time:r.created_at,reviewedAt:r.reviewed_at}));
       state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || '',is_blocked:!!p.is_blocked,blocked_at:p.blocked_at||null,blocked_reason:p.blocked_reason||'',deleted_at:p.deleted_at||null}));
       if (state.role === 'admin') state.customers = await Promise.all(state.customers.map(async c => { if (!c.avatar_path) return c; const { data: signed } = await client.storage.from('profile-photos').createSignedUrl(c.avatar_path,3600); return {...c,avatar_url:signed?.signedUrl || ''}; }));
       const profMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id,p.display_name || '']));
@@ -393,6 +393,17 @@
             try { new Notification(title,{body:'A new message is waiting in your account inbox.'}); } catch {}
           }
         } else if(user) localStorage.setItem('apex-inbox-last-read-'+user.id,String(Date.now()));
+        loadCloud();
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'withdrawal_requests'},payload=>{
+        const row=payload.new||{};
+        if(state.role==='customer'&&row.user_id!==user.id)return;
+        if(state.role==='customer'){
+          const labels={pending:'pending review',approved:'approved by the administrator',rejected:'rejected by the administrator',topup_required:'top-up required',paid:'marked paid',cancelled:'cancelled'};
+          const status=labels[row.status]||row.status||'updated';
+          toastSafe('Withdrawal update: '+status+(row.admin_message?' — '+row.admin_message:''));
+          if('Notification' in window&&Notification.permission==='granted'){try{new Notification('Withdrawal request updated',{body:row.admin_message||('Your request is now '+status+'.')})}catch{}}
+        }
         loadCloud();
       }).subscribe();
   }
@@ -595,8 +606,26 @@
     const target=document.getElementById('adminWithdrawals');
     if(!target||state.role!=='admin')return;
     const rows=Array.isArray(state.withdrawals)?state.withdrawals:[];
-    target.innerHTML=rows.length?rows.slice().reverse().map(r=>{const status=String(r.status||'pending').toLowerCase();const actions=status==='pending'?'<div class="flex flex-wrap gap-2 mt-3"><button class="btn" data-withdraw-review="approved" data-withdraw-id="'+safe(r.id)+'">Mark reviewed</button><button class="btn btn-danger" data-withdraw-review="rejected" data-withdraw-id="'+safe(r.id)+'">Reject request</button></div>':'';return '<article class="table-row py-4"><div class="flex flex-wrap justify-between gap-3"><div><div class="font-semibold">'+safe(money(r.amount))+' · '+safe(r.bank_name)+'</div><div class="muted text-xs mt-1">'+safe(r.account_holder)+' · '+safe(r.bank_country)+' · account ending '+safe(String(r.account_number||'').slice(-4))+'</div><div class="muted text-xs mt-1">Customer '+safe(String(r.user_id||'').slice(0,8))+' · '+new Date(r.time).toLocaleString()+'</div></div><span class="pill" style="background:'+(status==='rejected'?'#fb718520':status==='approved'?'#fcd34d20':'#c084fc20')+';color:'+(status==='rejected'?'#fb7185':status==='approved'?'#fcd34d':'#c4b5fd')+'">'+safe(status==='pending'?'ON HOLD · REVIEW':status.toUpperCase())+'</span></div><p class="muted text-xs mt-2">'+safe(r.eligibility_note)+'</p>'+actions+'</article>'}).join(''):'<div class="muted py-5">No withdrawal requests have been received yet.</div>';
-    target.querySelectorAll('[data-withdraw-review]').forEach(btn=>btn.onclick=async()=>{if(state.role!=='admin')return toastSafe('Administrator access required.');const next=btn.dataset.withdrawReview;const note=next==='approved'?'Reviewed by administrator; actual funds and payout remain unverified.':'Withdrawal request rejected by administrator.';const {error}=await client.from('withdrawal_requests').update({status:next,eligibility_note:note,reviewed_by:user.id,reviewed_at:new Date().toISOString()}).eq('id',btn.dataset.withdrawId).eq('status','pending');if(error)return toastSafe('Could not update request: '+error.message);log('Withdrawal request '+next,note);await reloadAndToast(next==='approved'?'Request marked reviewed. This does not confirm payment.':'Withdrawal request rejected. No payment was sent.');});
+    const statusMeta={pending:['PENDING · REVIEW','#c4b5fd'],approved:['APPROVED · PAYMENT NOT CONFIRMED','#fbbf24'],topup_required:['TOP-UP REQUIRED','#60a5fa'],rejected:['REJECTED','#fb7185'],paid:['PAID · CONFIRMATION RECORDED','#6ee7b7'],cancelled:['CANCELLED','#94a3b8'],ineligible:['INELIGIBLE','#94a3b8']};
+    target.innerHTML=rows.length?rows.slice().reverse().map(r=>{const status=String(r.status||'pending').toLowerCase(),meta=statusMeta[status]||[status.toUpperCase(),'#c4b5fd'];return '<article class="table-row py-4"><div class="flex flex-wrap justify-between gap-3"><div><div class="font-semibold">'+safe(money(r.amount))+' · '+safe(r.bank_name)+'</div><div class="muted text-xs mt-1">'+safe(r.account_holder)+' · '+safe(r.bank_country)+' · account ending '+safe(String(r.account_number||'').slice(-4))+'</div><div class="muted text-xs mt-1">Customer '+safe(String(r.user_id||'').slice(0,8))+' · '+new Date(r.time).toLocaleString()+'</div><div class="muted text-xs mt-1">Reference '+safe(String(r.id||'').slice(0,8).toUpperCase())+'</div></div><span class="pill" style="background:'+meta[1]+'20;color:'+meta[1]+'">'+safe(meta[0])+'</span></div><label class="muted text-xs block mt-4 mb-2" for="withdrawAdminMessage-'+safe(r.id)+'">Message shown in this customer’s dashboard</label><textarea class="field" rows="3" maxlength="1000" id="withdrawAdminMessage-'+safe(r.id)+'" data-withdraw-message="'+safe(r.id)+'" placeholder="Write a message for this customer…">'+safe(r.admin_message||'')+'</textarea><div class="flex flex-wrap gap-2 mt-3"><button class="btn btn-primary" data-withdraw-review="approved" data-withdraw-id="'+safe(r.id)+'">Approve request</button><button class="btn btn-danger" data-withdraw-review="rejected" data-withdraw-id="'+safe(r.id)+'">Reject request</button><button class="btn" style="border-color:#60a5fa;color:#93c5fd" data-withdraw-review="topup_required" data-withdraw-id="'+safe(r.id)+'">Request top-up</button><button class="btn" data-withdraw-review="message_only" data-withdraw-id="'+safe(r.id)+'">Send / edit message</button></div><p class="muted text-xs mt-2">Your message and selected status will be saved to the customer’s account. Approving is not the same as a confirmed payout.</p></article>'}).join(''):'<div class="muted py-5">No withdrawal requests have been received yet.</div>';
+    target.querySelectorAll('[data-withdraw-review]').forEach(btn=>btn.onclick=async()=>{
+      if(state.role!=='admin')return toastSafe('Administrator access required.');
+      const id=btn.dataset.withdrawId,next=btn.dataset.withdrawReview,field=target.querySelector('[data-withdraw-message="'+id+'"]');
+      const custom=(field?.value||'').trim();
+      const defaults={approved:'Your withdrawal request has been approved by the administrator. Payment is not confirmed until the payout provider verifies the transfer.',rejected:'Your withdrawal request has been rejected by the administrator. Contact support if you need more information.',topup_required:'Please top up your account before proceeding with this withdrawal request.'};
+      const message=custom|| (next==='message_only'?'':defaults[next]||'');
+      if(next==='message_only'&&!message)return toastSafe('Write a message for the customer first.');
+      const patch={admin_message:message};
+      if(next!=='message_only'){
+        patch.status=next;
+        patch.eligibility_note=next==='approved'?'Approved by administrator; payout not yet confirmed.':next==='rejected'?'Rejected by administrator. No payout was sent.': 'Administrator requested a top-up before this withdrawal can proceed.';
+        patch.reviewed_by=user.id;patch.reviewed_at=new Date().toISOString();
+      }
+      const {error}=await client.from('withdrawal_requests').update(patch).eq('id',id);
+      if(error)return toastSafe('Could not update customer request: '+error.message);
+      log(next==='message_only'?'Withdrawal message sent':'Withdrawal request '+next,message);
+      await reloadAndToast(next==='message_only'?'Message saved and sent to the customer dashboard.':'Customer dashboard updated: '+(next==='topup_required'?'top-up required':next)+'.');
+    });
   }
 
   // The top-up request is stored in the database and remains pending until an admin reviews it.
