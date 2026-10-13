@@ -879,15 +879,21 @@
   // Only real administrator profiles may open the management page.
   const originalGo = go;
   go = function(page) {
-    if (page === 'admin' && state.role !== 'admin') { toastSafe('Administrator access required.'); return; }
+    // Enforce role-specific landing pages as well as access restrictions.
+    // An admin must never remain on the customer overview if another startup
+    // callback tries to navigate there after authentication.
     if (state.role === 'admin' && !['admin','messages','profile'].includes(page)) {
-      toastSafe('That page belongs to the customer workspace.');
-      return;
+      toastSafe('Customer workspace is not available to administrator accounts.');
+      page = 'admin';
     }
+    if (page === 'admin' && state.role !== 'admin') {
+      toastSafe('Administrator access required.');
+      page = 'overview';
+    }
+    window.apexCurrentRole = state.role;
     const result = originalGo(page);
     const languageControl = document.getElementById('languageSelect');
     if (languageControl) languageControl.classList.toggle('hidden', state.role === 'admin');
-    window.apexCurrentRole = state.role;
     const backButton = document.getElementById('pageBackBtn');
     if (backButton) backButton.style.visibility = (page === 'overview' || page === 'admin') ? 'hidden' : 'visible';
     return result;
