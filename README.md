@@ -1,34 +1,44 @@
 # Apex Terminal — Private AI Trading Platform
 
-A polished, mobile-friendly trading terminal preview with public cryptocurrency prices and simulated order execution.
+A polished, mobile-friendly terminal with public cryptocurrency market data, simulated trading, authenticated customer accounts, and a Supabase-backed support/funding workflow.
 
-## Included in this branch
+## Files
 
-- `index.html` — responsive trading terminal, market watchlist and chart, public price lookups, descriptive market summary, simulated order creation and closing, open-position P/L estimates, editable welcome-credit card and admin settings, top-up request submission and approval queue, customer/admin preview inbox with image/audio attachments, activity ledger and CSV export.
-- `supabase/schema.sql` — starter schema and row-level security policies for authenticated profiles, settings, top-up requests, private messages, activity events, and simulated orders.
+- `index.html` — responsive terminal, live public price feed and chart, simulated positions, welcome gift card, top-up request page, inbox, activity history and admin controls.
+- `supabase-backend.js` — Supabase email/password authentication, cloud loading/saving for top-up requests, messages and attachments, welcome gift settings, simulated orders, activity history, and role-based admin UI gating. It uses only the public publishable key.
+- `supabase/schema.sql` — database schema, RLS policies, profile bootstrap trigger, simulated order state, and private chat storage bucket/policies.
 
-## Status and limitations
+## Supabase project
 
-- The top-right `PREVIEW` marker is intentionally discreet. Simulated execution is identified where users create and review preview orders; the rest of the UI avoids repeated demo banners.
-- Browser state is currently stored in local storage. It does not yet provide shared customer accounts, durable cross-device messages, or server persistence.
-- The admin/customer switch is a visual preview control, not authentication. Do not expose this static preview as a live multi-customer service.
-- Public crypto prices are fetched from CoinGecko when available. The provider can rate-limit or fail; unavailable data is shown as unavailable rather than invented.
-- Orders and P/L calculations are simulated previews only. No exchange order, bank transfer, deposit, or withdrawal is executed.
-- A top-up request does not prove payment. Real balance credits require payment verification on a trusted server-side provider webhook.
+A dedicated Supabase project named **AI Trading Platform** was created for this repository. Its project URL is `https://jyztynjxivznjqnncyev.supabase.co`. The schema and private attachment bucket were applied to that project. The browser code contains the project's publishable key only; never place a service-role key in client code.
 
-## Steps required for a complete production deployment
+## Current behavior
 
-1. Create or select a dedicated Supabase project for this trading platform. Do not reuse unrelated project databases.
-2. Enable Supabase Auth, apply `supabase/schema.sql`, and securely promote the verified owner profile to admin using the SQL comment at the end of the schema.
-3. Configure a private `chat-attachments` Storage bucket with owner/admin policies and signed URLs.
-4. Add authenticated API endpoints for role-checked admin actions, payment verification, atomic top-up approval, and message/attachment operations.
-5. Connect the UI to Supabase Auth, database queries and realtime subscriptions. Remove the local-only preview switch once server-side roles are live.
-6. Test account isolation, upload access, top-up approval/rejection, and persistence on mobile before deployment.
+- Customer accounts use Supabase Auth. New signups receive a customer profile via a database trigger.
+- Customer top-up requests are stored centrally and remain pending until an administrator reviews them. Approval/rejection updates request status only; it does not claim a payment was received or credit a cash balance.
+- Welcome gift title, amount and terms are stored in `app_settings` and shared across accounts. The gift is explicitly promotional preview credit, not cash or withdrawable funds.
+- Customer/admin messages are persisted in the database. Photos and audio attachments use a private Storage bucket with short-lived signed URLs.
+- Simulated orders are stored in `simulated_orders`; the UI does not send exchange orders.
+- Public crypto prices are fetched from CoinGecko. The provider may rate-limit or fail; the app shows unavailable data rather than inventing prices.
+- Virtual buying power is a simulated trading amount only. It is not a bank balance, deposit, investment account or withdrawable money.
 
-## Deploy
+## Required owner setup
 
-The current app is a static HTML preview. It can be reviewed on a static host, but the secure backend steps above must be completed before it is used with real customers.
+1. Deploy the branch `feature/transparent-trading-platform` (or merge its pull request) to your static host. Ensure `index.html` and `supabase-backend.js` are deployed at the same path.
+2. In Supabase Auth settings, configure your production site URL and allowed redirect URLs. Enable email confirmation if desired.
+3. Create your owner account through the website. New accounts intentionally start as customers.
+4. Promote only your verified owner profile to administrator from the Supabase SQL editor, replacing the placeholder with the UUID for your signed-in account:
+   ```sql
+   update public.profiles set role = 'admin'
+   where id = '<your-verified-auth-user-uuid>';
+   ```
+   The UUID is available in Supabase Authentication → Users. Never add public self-service admin signup or put a service-role key in the browser.
+5. Sign out and back in after the role change. The Admin Center will then be visible only to the verified admin profile.
 
-## Financial integrity
+## Financial integrity and scope
 
-Public market data is informational. Simulated orders and estimates must not be represented as actual exchange executions or guaranteed returns. Do not display a transfer as completed until confirmed by the payment provider.
+This branch is not connected to a bank or payment processor. It does not execute real trades, accept deposits, transfer money, or process withdrawals. A top-up request is not payment verification. Any future real-money functionality requires a regulated payment provider, trusted server-side webhook verification, audit controls, and separate security review.
+
+## Review
+
+Changes are proposed in draft pull request [#1](https://github.com/onkkvsj-sys/ai-trading-platform./pull/1). The default `main` branch has not been changed by this work.
