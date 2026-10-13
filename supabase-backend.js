@@ -283,16 +283,24 @@
   // Do not allow preview-only role switching or local reset to bypass cloud authentication.
   window.apexSupabase = client;
   window.apexSignOut = async () => { await client.auth.signOut(); location.reload(); };
-  client.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_OUT') { user=null; profile=null; cloudReady=false; document.getElementById('layout').classList.add('hidden'); document.getElementById('authGate').classList.remove('hidden'); }
-    if (session?.user && !user) {
-      try { await activate(session.user); } catch (err) { console.error(err); statusLine('Account setup failed: '+(err.message||'unknown error'),true); }
+  client.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      user=null; profile=null; cloudReady=false;
+      document.getElementById('layout').classList.add('hidden');
+      document.getElementById('authGate').classList.remove('hidden');
     }
+    // Defer network work until after the auth callback releases the client's internal lock.
+    if (session?.user && !user) setTimeout(async () => {
+      if (user) return;
+      try { await activate(session.user); }
+      catch (err) { user=null; console.error(err); statusLine('Account setup failed: '+(err.message||'unknown error'),true); }
+    }, 0);
   });
   client.auth.getSession().then(async ({data,error}) => {
     if (error) return statusLine(error.message,true);
-    if (data.session?.user) {
-      try { await activate(data.session.user); } catch (err) { console.error(err); statusLine('Account setup failed: '+(err.message||'unknown error'),true); }
+    if (data.session?.user && !user) {
+      try { await activate(data.session.user); }
+      catch (err) { user=null; console.error(err); statusLine('Account setup failed: '+(err.message||'unknown error'),true); }
     }
   });
 })();
