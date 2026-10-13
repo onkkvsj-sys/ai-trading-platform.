@@ -120,8 +120,21 @@ drop policy if exists "settings_read_authenticated" on public.app_settings;
 create policy "settings_read_authenticated" on public.app_settings
 for select to authenticated using (true);
 drop policy if exists "settings_admin_write" on public.app_settings;
-create policy "settings_admin_write" on public.app_settings
-for all to authenticated using (private.is_admin()) with check (private.is_admin());
+drop policy if exists settings_admin_insert on public.app_settings;
+drop policy if exists settings_admin_update on public.app_settings;
+drop policy if exists settings_admin_delete on public.app_settings;
+create policy settings_admin_insert on public.app_settings for insert to authenticated with check (private.is_admin());
+create policy settings_admin_update on public.app_settings for update to authenticated using (private.is_admin()) with check (private.is_admin());
+create policy settings_admin_delete on public.app_settings for delete to authenticated using (private.is_admin());
+
+create index if not exists app_settings_updated_by_idx on public.app_settings(updated_by);
+create index if not exists topup_requests_user_id_idx on public.topup_requests(user_id);
+create index if not exists topup_requests_reviewed_by_idx on public.topup_requests(reviewed_by);
+create index if not exists messages_conversation_owner_created_idx on public.messages(conversation_owner_id, created_at);
+create index if not exists messages_sender_id_idx on public.messages(sender_id);
+create index if not exists activity_events_user_created_idx on public.activity_events(user_id, created_at desc);
+create index if not exists activity_events_actor_id_idx on public.activity_events(actor_id);
+create index if not exists simulated_orders_user_created_idx on public.simulated_orders(user_id, created_at desc);
 
 drop policy if exists "topups_read_owner_or_admin" on public.topup_requests;
 create policy "topups_read_owner_or_admin" on public.topup_requests
