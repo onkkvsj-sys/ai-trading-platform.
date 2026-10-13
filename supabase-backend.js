@@ -10,13 +10,13 @@
   let profile = null;
   let cloudReady = false;
   let loadingCloud = false;
-  let dashboardSettings={brandName:'AI Trading Bot',announcementTitle:'Platform update',announcementText:'Welcome to your customer dashboard.',announcementEnabled:false};
+  let dashboardSettings={brandName:'AI Trading Bot',overviewTitle:'Market overview',overviewSubtitle:'Your market desk, strategy signals and portfolio at a glance.',announcementTitle:'Platform update',announcementText:'Welcome to your customer dashboard.',announcementEnabled:false};
   function applyDashboardSettings(){
-    const brand=String(dashboardSettings.brandName||'AI Trading Bot').trim()||'AI Trading Bot';document.title=brand+' · Markets';const brandLabel=document.getElementById('platformBrandName');if(brandLabel)brandLabel.textContent=brand;
+    const brand=String(dashboardSettings.brandName||'AI Trading Bot').trim()||'AI Trading Bot';document.title=brand+' · Markets';const brandLabel=document.getElementById('platformBrandName');if(brandLabel)brandLabel.textContent=brand;const overviewTitle=String(dashboardSettings.overviewTitle||'Market overview');const overviewSubtitle=String(dashboardSettings.overviewSubtitle||'Your market desk, strategy signals and portfolio at a glance.');if(typeof titles!=='undefined'&&titles.overview){titles.overview[0]=overviewTitle;titles.overview[1]=overviewSubtitle;}if(document.getElementById('page-overview')?.classList.contains('active')){const t=document.getElementById('pageTitle'),sub=document.getElementById('pageSubtitle');if(t)t.textContent=overviewTitle;if(sub)sub.textContent=overviewSubtitle;}
     const banner=document.getElementById('globalAnnouncement');
     if(banner){banner.classList.toggle('hidden',!dashboardSettings.announcementEnabled||!String(dashboardSettings.announcementText||'').trim());document.getElementById('globalAnnouncementTitle').textContent=dashboardSettings.announcementTitle||'Platform update';document.getElementById('globalAnnouncementText').textContent=dashboardSettings.announcementText||'';}
   }
-  function fillDashboardSettingsForm(){if(!document.getElementById('dashboardSettingsForm'))return;document.getElementById('dashboardBrandName').value=dashboardSettings.brandName||'AI Trading Bot';document.getElementById('dashboardAnnouncementTitle').value=dashboardSettings.announcementTitle||'Platform update';document.getElementById('dashboardAnnouncementText').value=dashboardSettings.announcementText||'';document.getElementById('dashboardAnnouncementEnabled').checked=!!dashboardSettings.announcementEnabled;}
+  function fillDashboardSettingsForm(){if(!document.getElementById('dashboardSettingsForm'))return;document.getElementById('dashboardBrandName').value=dashboardSettings.brandName||'AI Trading Bot';document.getElementById('dashboardOverviewTitle').value=dashboardSettings.overviewTitle||'Market overview';document.getElementById('dashboardOverviewSubtitle').value=dashboardSettings.overviewSubtitle||'Your market desk, strategy signals and portfolio at a glance.';document.getElementById('dashboardAnnouncementTitle').value=dashboardSettings.announcementTitle||'Platform update';document.getElementById('dashboardAnnouncementText').value=dashboardSettings.announcementText||'';document.getElementById('dashboardAnnouncementEnabled').checked=!!dashboardSettings.announcementEnabled;}
 
   const originalLog = log;
   const originalSave = save;
@@ -617,7 +617,7 @@
   };
   document.getElementById('dashboardSettingsForm').onsubmit=async e=>{
     e.preventDefault();if(state.role!=='admin')return toastSafe('Administrator access required.');
-    const value={brandName:document.getElementById('dashboardBrandName').value.trim().slice(0,70)||'AI Trading Bot',announcementTitle:document.getElementById('dashboardAnnouncementTitle').value.trim().slice(0,90)||'Platform update',announcementText:document.getElementById('dashboardAnnouncementText').value.trim().slice(0,500),announcementEnabled:document.getElementById('dashboardAnnouncementEnabled').checked};
+    const value={brandName:document.getElementById('dashboardBrandName').value.trim().slice(0,70)||'AI Trading Bot',overviewTitle:document.getElementById('dashboardOverviewTitle').value.trim().slice(0,90)||'Market overview',overviewSubtitle:document.getElementById('dashboardOverviewSubtitle').value.trim().slice(0,180)||'Your market desk, strategy signals and portfolio at a glance.',announcementTitle:document.getElementById('dashboardAnnouncementTitle').value.trim().slice(0,90)||'Platform update',announcementText:document.getElementById('dashboardAnnouncementText').value.trim().slice(0,500),announcementEnabled:document.getElementById('dashboardAnnouncementEnabled').checked};
     const status=document.getElementById('dashboardSettingsStatus');if(status)status.textContent='Publishing…';
     const {error}=await client.from('app_settings').upsert({key:'dashboard_settings',value,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
     if(error){if(status)status.textContent='Could not save';return toastSafe('Dashboard settings could not be saved: '+error.message);}
