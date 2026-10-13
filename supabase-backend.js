@@ -40,7 +40,7 @@
       <div class="flex gap-2 mb-5"><button id="authLoginTab" class="authSwitch active" type="button">Sign in</button><button id="authSignupTab" class="authSwitch" type="button">Create account</button></div>
       <form id="authForm" class="space-y-4">
         <div id="authNameWrap" class="hidden"><label class="muted text-xs block mb-2">Display name</label><input id="authName" autocomplete="name" maxlength="80" placeholder="Your name"></div>
-        <div><label class="muted text-xs block mb-2">Email address</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
+        <div id="authEmailWrap"><label class="muted text-xs block mb-2">Email address</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
         <div><label class="muted text-xs block mb-2">Password</label><input id="authPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="At least 8 characters"></div>
         <button id="authSubmit" class="authSubmit" type="submit">Sign in securely</button>
       </form>
@@ -53,14 +53,20 @@
   let authMode = 'login';
   function setAuthMode(mode) {
     authMode = mode;
+    const recovery = mode === 'recovery';
+    document.getElementById('authLoginTab').classList.toggle('hidden', recovery);
+    document.getElementById('authSignupTab').classList.toggle('hidden', recovery);
+    document.getElementById('authEmailWrap').classList.toggle('hidden', recovery);
+    document.getElementById('authEmail').required = !recovery;
     document.getElementById('authLoginTab').classList.toggle('active', mode === 'login');
     document.getElementById('authSignupTab').classList.toggle('active', mode === 'signup');
     document.getElementById('authNameWrap').classList.toggle('hidden', mode !== 'signup');
-    document.getElementById('authTitle').textContent = mode === 'login' ? 'Welcome back' : 'Create your account';
-    document.getElementById('authDescription').textContent = mode === 'login' ? 'Sign in to access your private workspace.' : 'Create a private customer account.';
-    document.getElementById('authSubmit').textContent = mode === 'login' ? 'Sign in securely' : 'Create account';
+    document.getElementById('authTitle').textContent = recovery ? 'Set a new password' : mode === 'login' ? 'Welcome back' : 'Create your account';
+    document.getElementById('authDescription').textContent = recovery ? 'Choose a new password for your account.' : mode === 'login' ? 'Sign in to access your private workspace.' : 'Create a private customer account.';
+    document.getElementById('authSubmit').textContent = recovery ? 'Update password' : mode === 'login' ? 'Sign in securely' : 'Create account';
     document.getElementById('authReset').classList.toggle('hidden', mode !== 'login');
     document.getElementById('authPassword').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    document.getElementById('authPassword').placeholder = recovery ? 'Enter a new password' : 'At least 8 characters';
     statusLine('');
   }
   document.getElementById('authLoginTab').onclick = () => setAuthMode('login');
@@ -73,8 +79,14 @@
     const submit = document.getElementById('authSubmit');
     submit.disabled = true; submit.textContent = 'Please wait…'; statusLine('');
     try {
-      if (authMode === 'signup') {
-        const { data, error } = await client.auth.signUp({ email, password, options: { data: { display_name } } });
+      if (authMode === 'recovery') {
+        const { error } = await client.auth.updateUser({ password });
+        if (error) throw error;
+        statusLine('Password updated. Sign in with your new password.');
+        await client.auth.signOut();
+        setAuthMode('login');
+      } else if (authMode === 'signup') {
+        const { data, error } = await client.auth.signUp({ email, password, options: { data: { display_name }, emailRedirectTo: location.origin + location.pathname } });
         if (error) throw error;
         if (data.session) await activate(data.session.user);
         else statusLine('Account created. Check your email to confirm it, then return here to sign in.');
@@ -84,7 +96,7 @@
         await activate(data.user);
       }
     } catch (err) { statusLine(err.message || 'Could not complete sign-in.', true); }
-    finally { submit.disabled = false; submit.textContent = authMode === 'login' ? 'Sign in securely' : 'Create account'; }
+    finally { submit.disabled = false; submit.textContent = authMode === 'recovery' ? 'Update password' : authMode === 'login' ? 'Sign in securely' : 'Create account'; }
   };
   document.getElementById('authReset').onclick = async () => {
     const email = document.getElementById('authEmail').value.trim();
@@ -284,6 +296,10 @@
   window.apexSupabase = client;
   window.apexSignOut = async () => { await client.auth.signOut(); location.reload(); };
   client.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      setTimeout(() => { document.getElementById('layout').classList.add('hidden'); document.getElementById('authGate').classList.remove('hidden'); setAuthMode('recovery'); statusLine('Enter a new password below.'); }, 0);
+      return;
+    }
     if (event === 'SIGNED_OUT') {
       user=null; profile=null; cloudReady=false;
       document.getElementById('layout').classList.add('hidden');
