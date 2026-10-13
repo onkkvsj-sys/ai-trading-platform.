@@ -252,7 +252,7 @@
         : [{id:user.id,title:'Support conversation',createdAt:''}];
       if (state.role === 'admin' && !state.activeConversation && state.conversations.length) state.activeConversation = state.conversations[0].id;
       if (state.role === 'customer') state.activeConversation = user.id;
-      state.orders = (ordersRes.data || []).map(o => ({id:o.id,asset:o.asset_id,symbol:({bitcoin:'BTC',ethereum:'ETH',solana:'SOL',ripple:'XRP',binancecoin:'BNB'})[o.asset_id] || o.asset_id.toUpperCase(),side:o.side,amount:Number(o.notional_usd),price:Number(o.reference_price),time:o.created_at,status:o.status==='closed'?'Closed':o.status==='cancelled'?'Cancelled':'Open',realizedPnl:Number(o.realized_pnl)||0}));
+      state.orders = (ordersRes.data || []).map(o => ({id:o.id,asset:o.asset_id,symbol:({bitcoin:'BTC',ethereum:'ETH',solana:'SOL',ripple:'XRP',binancecoin:'BNB'})[o.asset_id] || o.asset_id.toUpperCase(),side:o.side,amount:Number(o.notional_usd),price:Number(o.reference_price),time:o.created_at,closedAt:o.closed_at||null,status:o.status==='closed'?'Closed':o.status==='cancelled'?'Cancelled':'Open',realizedPnl:Number(o.realized_pnl)||0}));
       state.realizedPnl = state.orders.filter(o=>o.status==='Closed').reduce((s,o)=>s+o.realizedPnl,0);
       state.activity = (activityRes.data || []).map(a=>({id:a.id,time:a.created_at,type:a.event_type,detail:a.details?.detail||'',amount:a.details?.amount||''}));
       localStorage.setItem(STORE, JSON.stringify(state));
