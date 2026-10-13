@@ -71,7 +71,7 @@
       </form>
       <button id="authReset" class="muted text-xs underline mt-4" type="button">Forgot password?</button>
       <p id="authStatus" class="muted text-xs leading-relaxed mt-4" aria-live="polite"></p>
-      <p class="muted text-[11px] leading-relaxed mt-5">Market orders in this workspace are simulated. Never share your password or bank details in messages.</p>
+      <p class="muted text-[11px] leading-relaxed mt-5">Orders placed in this workspace are recorded on this platform and are not sent to an exchange. Never share your password or bank details in messages.</p>
     </div>`;
   document.body.appendChild(gate);
   refreshCountrySelects();
@@ -80,7 +80,7 @@
     const modal=document.getElementById('welcomeGiftModal');
     if (!modal || localStorage.getItem('apex-welcome-visitor-shown')) return;
     const { data } = await client.from('app_settings').select('value').eq('key','welcome_gift').maybeSingle();
-    const gift=data?.value || {amount:250,title:'Apex Demo Credit',terms:'Demo-only credit for exploring the platform. No cash value; not a deposit and not withdrawable.'};
+    const gift=data?.value || {amount:250,title:'Welcome Gift',terms:'Promotional platform credit. It is separate from deposited funds and cannot be withdrawn.'};
     document.getElementById('giftModalGiftTitle').textContent=gift.title || 'Welcome gift';
     document.getElementById('giftModalAmount').textContent=money(gift.amount);
     document.getElementById('giftModalTerms').textContent=gift.terms || 'Welcome to your private workspace.';
@@ -366,9 +366,9 @@
     const gift=state.gift || {amount:0,title:'Welcome Gift',terms:'Your welcome benefit is ready. It is not a bank deposit.'};
     document.getElementById('giftModalTitle').textContent='Account created successfully!';
     document.getElementById('giftModalIntro').textContent='Welcome, '+(profile?.display_name||user.user_metadata?.display_name||'friend')+'! Your account is ready. Here is your welcome gift.';
-    document.getElementById('giftModalGiftTitle').textContent=String(gift.title||'Welcome Gift').replace(/demo/ig,'Welcome');
+    document.getElementById('giftModalGiftTitle').textContent=String(gift.title||'Welcome Gift');
     document.getElementById('giftModalAmount').textContent=money(gift.amount);
-    document.getElementById('giftModalTerms').textContent=String(gift.terms||'Your welcome benefit is ready to explore.').replace(/demo[- ]only/ig,'welcome').replace(/demo/ig,'welcome');
+    document.getElementById('giftModalTerms').textContent=String(gift.terms||'Your welcome benefit is ready to explore.');
     const close=()=>{modal.classList.add('hidden');localStorage.setItem(shownKey,'1');localStorage.removeItem(pendingKey);};
     document.getElementById('giftModalClose').onclick=close;
     document.getElementById('giftModalContinue').onclick=close;
@@ -459,7 +459,7 @@
     const customer=(state.customers||[]).find(c=>c.id===id);
     if (!customer || customer.role!=='customer') return toastSafe('Only customer accounts can be managed here.');
     if (id===user.id) return toastSafe('You cannot block or delete your own administrator account.');
-    const labels={block:'Block this customer? They will be signed out and will not be able to access the workspace until unblocked.',unblock:'Restore this customer account? They will be able to sign in again.',delete:'Permanently delete this customer account? Their profile, messages, and demo activity will be removed. This cannot be undone.'};
+    const labels={block:'Block this customer? They will be signed out and will not be able to access the workspace until unblocked.',unblock:'Restore this customer account? They will be able to sign in again.',delete:'Permanently delete this customer account? Their profile, messages, and trading activity will be removed. This cannot be undone.'};
     if (!window.confirm(labels[action]||'Continue with this account action?')) return;
     if (action==='block' && !reason && typeof window.prompt==='function') reason=window.prompt('Optional reason for blocking this account:','')||'';
     const buttons=[...document.querySelectorAll('[data-account-action][data-account-id="'+CSS.escape(id)+'"]')];
@@ -521,7 +521,7 @@
     target.querySelectorAll('[data-account-action]').forEach(btn=>btn.onclick=()=>manageCustomerAccount(btn.dataset.accountAction,btn.dataset.accountId));
   }
   renderAll = function() { originalRenderAll(); renderCustomers(); renderAdminSummary(); renderWithdrawalAdmin(); };
-  // Bank selector preview and withdrawal request gate. Practice P/L is never treated as cash.
+  // Bank selector preview and withdrawal request gate. Trading results are kept separate from deposited funds.
   const withdrawCountryEl=document.getElementById('withdrawCountry');
   const withdrawBankEl=document.getElementById('withdrawBank');
   const withdrawHolderEl=document.getElementById('withdrawHolder');
@@ -583,7 +583,7 @@
     if(!user||!Number.isFinite(amount)||amount<=0)return toastSafe('Enter a valid withdrawal amount and sign in.');
     if(!bank_name||account_holder.length<2||!/^[A-Za-z0-9]{6,34}$/.test(account_number))return toastSafe('Check the selected bank, account holder name, and account number.');
     const eligible=typeof withdrawableEarnings==='function'?withdrawableEarnings():0;
-    if(amount>eligible+0.000001)return toastSafe('Your withdrawal request exceeds earnings currently held for withdrawal. Earnings cannot be used for another trade, and practice earnings are not cash until a verified payout is available.');
+    if(amount>eligible+0.000001)return toastSafe('Your withdrawal request exceeds earnings currently held for withdrawal. Earnings cannot be used for another trade, and trading results are not eligible for payout until funds and a verified payout service are available.');
     if(eligible<=0)return toastSafe('There are no earnings currently available for a withdrawal request. Close a practice position with a recorded result or contact the administrator about your account ledger.');
     const eligibility_note='Received and held for administrator review. Actual payment and available cash must be verified before any payout.';
     const payload={user_id:user.id,amount,currency:'USD',bank_country,bank_name,account_holder,account_number,status:'pending',eligibility_note};
@@ -775,7 +775,7 @@
     const a=assets.find(x=>x[0]===id);
     if(!p) return toastSafe('No current price available. Refresh the market feed first.');
     if(!Number.isFinite(amount)||amount<=0) return toastSafe('Enter a valid order size.');
-    if(amount>totalBalance()) return toastSafe('Insufficient available trading balance. Only funding requests approved after payment verification are available to trade.');
+    if(amount>totalBalance()) return toastSafe('Insufficient available trading balance. Only approved funding and administrator-recorded deposit credits are available to trade.');
     const {error}=await client.from('simulated_orders').insert({user_id:user.id,asset_id:id,side:document.getElementById('tradeSide').value,notional_usd:amount,reference_price:p,execution_mode:'simulated',status:'open'});
     if(error) return toastSafe('Trade could not be saved: '+error.message);
     log('Trade placed',document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));
