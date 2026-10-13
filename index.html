@@ -706,12 +706,15 @@ function totalPnl(){return Number(state.realizedPnl||0)+openOrders().reduce((sum
 function approvedFunding(){return (state.requests||[]).filter(r=>String(r.status||'').toLowerCase()==='approved').reduce((sum,r)=>sum+Number(r.amount||0),0)+(state.credits||[]).filter(c=>c.credit_type==='deposit').reduce((sum,c)=>sum+Number(c.amount||0),0)}
 function earningsCredits(){return (state.credits||[]).filter(c=>c.credit_type==='earnings').reduce((sum,c)=>sum+Number(c.amount||0),0)}
 function realizedTradingEarnings(){return Number(state.realizedPnl||0)+earningsCredits()}
-function reservedWithdrawals(){return (state.withdrawals||[]).filter(w=>['pending','approved','paid'].includes(String(w.status||'').toLowerCase())).reduce((sum,w)=>sum+Number(w.amount||0),0)}
-function withdrawableEarnings(){return Math.max(0,Number((realizedTradingEarnings()-reservedWithdrawals()).toFixed(2)))}
+function withdrawalReservedStatuses(){return ['pending','approved','paid'].includes(String(w.status||'').toLowerCase())}
+function reservedDepositWithdrawals(){return (state.withdrawals||[]).filter(w=>withdrawalReservedStatusesFor(w)&&String(w.eligibility_note||'').startsWith('fund_source:deposit')).reduce((sum,w)=>sum+Number(w.amount||0),0)}
+function withdrawalReservedStatusesFor(w){return ['pending','approved','paid'].includes(String(w.status||'').toLowerCase())}
+function reservedEarningsWithdrawals(){return (state.withdrawals||[]).filter(w=>withdrawalReservedStatusesFor(w)&&(!String(w.eligibility_note||'').startsWith('fund_source:')||String(w.eligibility_note||'').startsWith('fund_source:earnings'))).reduce((sum,w)=>sum+Number(w.amount||0),0)}
+function withdrawableEarnings(){return Math.max(0,Number((realizedTradingEarnings()-reservedEarningsWithdrawals()).toFixed(2)))}
 function welcomeGiftTotal(){return Number((state.credits||[]).filter(c=>c.credit_type==='deposit'&&String(c.note||'').startsWith('[welcome-gift-v1]')).reduce((sum,c)=>sum+Number(c.amount||0),0).toFixed(2))}
 function welcomeGiftUsed(){const openCommitted=openOrders().reduce((sum,o)=>sum+Number(o.amount||0),0);const losses=(state.orders||[]).filter(o=>o.status==='Closed').reduce((sum,o)=>sum+Math.max(0,-Number(o.realizedPnl||0)),0);return Math.min(welcomeGiftTotal(),openCommitted+losses)}
 function welcomeGiftRemaining(){return Math.max(0,Number((welcomeGiftTotal()-welcomeGiftUsed()).toFixed(2)))}
-function totalBalance(){const closedLosses=(state.orders||[]).filter(o=>o.status==='Closed').reduce((sum,o)=>sum+Math.min(0,Number(o.realizedPnl)||0),0);return Math.max(0,Number((approvedFunding()-openOrders().reduce((sum,o)=>sum+Number(o.amount||0),0)+closedLosses).toFixed(2)))}
+function totalBalance(){const closedLosses=(state.orders||[]).filter(o=>o.status==='Closed').reduce((sum,o)=>sum+Math.min(0,Number(o.realizedPnl)||0),0);return Math.max(0,Number((approvedFunding()-openOrders().reduce((sum,o)=>sum+Number(o.amount||0),0)+closedLosses-reservedDepositWithdrawals()).toFixed(2)))}
 function totalEquity(){return Number((approvedFunding()+totalPnl()+earningsCredits()).toFixed(2))}
 function renderPortfolioPerformance(){
  const available=$('portfolioAvailable'),equity=$('portfolioEquity'),note=$('portfolioChartNote');
