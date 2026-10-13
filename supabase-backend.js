@@ -144,6 +144,19 @@
     user = nextUser;
     if (!user) return;
     statusLine('Loading your private account…');
+    const { data: access, error: accessError } = await client.rpc('current_account_access_status');
+    if (accessError) throw accessError;
+    if (!access?.exists || access?.is_blocked || access?.deleted) {
+      const blockedMessage = access?.is_blocked
+        ? 'This account has been blocked by the administrator. Contact support if you believe this is a mistake.'
+        : 'This account is no longer available. Contact support for assistance.';
+      await client.auth.signOut();
+      user = null; profile = null; cloudReady = false;
+      document.getElementById('layout').classList.add('hidden');
+      document.getElementById('authGate').classList.remove('hidden');
+      statusLine(blockedMessage, true);
+      return;
+    }
     const { data: found, error: profileErr } = await client.from('profiles').select('*').eq('id', user.id).maybeSingle();
     if (profileErr) throw profileErr;
     if (found) {
@@ -203,12 +216,12 @@
         client.from('messages').select('*').order('created_at',{ascending:true}),
         client.from('simulated_orders').select('*').order('created_at',{ascending:true}),
         client.from('activity_events').select('*').order('created_at',{ascending:false}).limit(300),
-        client.from('profiles').select('id,display_name,role,created_at')
+        client.from('profiles').select('id,display_name,role,created_at,country_code,avatar_path,is_blocked,blocked_at,blocked_reason,deleted_at')
       ]);
       for (const r of [giftRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes]) if (r.error) throw r.error;
       if (giftRes.data?.value) state.gift = giftRes.data.value;
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
-      state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || ''}));
+      state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || '',is_blocked:!!p.is_blocked,blocked_at:p.blocked_at||null,blocked_reason:p.blocked_reason||'',deleted_at:p.deleted_at||null}));
       if (state.role === 'admin') state.customers = await Promise.all(state.customers.map(async c => { if (!c.avatar_path) return c; const { data: signed } = await client.storage.from('profile-photos').createSignedUrl(c.avatar_path,3600); return {...c,avatar_url:signed?.signedUrl || ''}; }));
       const profMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id,p.display_name || '']));
       if (profile?.avatar_path) { const { data: avatar } = await client.storage.from('profile-photos').createSignedUrl(profile.avatar_path, 3600); profile.avatar_url = avatar?.signedUrl || ''; }
@@ -272,6 +285,13 @@
     }
     setAvatar(document.getElementById('profileAvatarButton'), avatarUrl, name);
     setAvatar(document.getElementById('profileAvatarPreview'), avatarUrl, name);
+    setAvatar(document.getElementById('profileHeroAvatar'), avatarUrl, name);
+    const heroName=document.getElementById('profileHeroName');if(heroName)heroName.textContent=name||'Your profile';
+    const heroSub=document.getElementById('profileHeroSub');if(heroSub)heroSub.textContent=state.role==='admin'?'Manage your administrator identity and account security.':'Manage your customer identity and workspace preferences.';
+    const heroRole=document.getElementById('profileHeroRole');if(heroRole)heroRole.textContent=state.role==='admin'?'PRIVATE ADMIN ACCOUNT':'CUSTOMER ACCOUNT';
+    const flags={NG:'🇳🇬 Nigeria',MX:'🇲🇽 Mexico',US:'🇺🇸 United States',GB:'🇬🇧 United Kingdom',ES:'🇪🇸 Spain',CO:'🇨🇴 Colombia',AR:'🇦🇷 Argentina',BR:'🇧🇷 Brazil',CA:'🇨🇦 Canada',GH:'🇬🇭 Ghana',KE:'🇰🇪 Kenya',ZA:'🇿🇦 South Africa',IN:'🇮🇳 India',PH:'🇵🇭 Philippines',OTHER:'🌐 Other'};
+    const heroCountry=document.getElementById('profileHeroCountry');if(heroCountry)heroCountry.textContent=flags[country]||'COUNTRY NOT SET';
+    const heroEyebrow=document.getElementById('profileHeroEyebrow');if(heroEyebrow)heroEyebrow.textContent=state.role==='admin'?'APEX · PRIVATE ADMIN PROFILE':'APEX · CUSTOMER PROFILE';
     const photoInput = document.getElementById('profilePhotoInput');
     if (photoInput) photoInput.onchange = async e => {
       const file = e.target.files?.[0];
@@ -390,39 +410,71 @@
     const view=document.getElementById('adminViewMessages');if(view)view.onclick=()=>go('messages');
     const find=document.getElementById('adminFindCustomer');if(find)find.onclick=()=>{const el=document.getElementById('adminCustomers');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})};
   }
+  async function manageCustomerAccount(action, id, reason='') {
+    if (state.role !== 'admin' || !user) return toastSafe('Administrator access required.');
+    const customer=(state.customers||[]).find(c=>c.id===id);
+    if (!customer || customer.role!=='customer') return toastSafe('Only customer accounts can be managed here.');
+    if (id===user.id) return toastSafe('You cannot block or delete your own administrator account.');
+    const labels={block:'Block this customer? They will be signed out and will not be able to access the workspace until unblocked.',unblock:'Restore this customer account? They will be able to sign in again.',delete:'Permanently delete this customer account? Their profile, messages, and demo activity will be removed. This cannot be undone.'};
+    if (!window.confirm(labels[action]||'Continue with this account action?')) return;
+    if (action==='block' && !reason && typeof window.prompt==='function') reason=window.prompt('Optional reason for blocking this account:','')||'';
+    const buttons=[...document.querySelectorAll('[data-account-action][data-account-id="'+CSS.escape(id)+'"]')];
+    buttons.forEach(btn=>{btn.disabled=true;btn.dataset.originalText=btn.textContent;btn.textContent='Please wait…'});
+    try {
+      const {data,error}=await client.functions.invoke('manage-customer-account',{body:{action,userId:id,reason}});
+      if (error || data?.error) throw new Error(data?.error || error?.message || 'Account action failed.');
+      log('Customer account '+action,customer.display_name+' · '+id.slice(0,8));
+      await reloadAndToast(action==='block'?'Customer blocked. They can no longer access the workspace.':action==='unblock'?'Customer access restored.':'Customer account permanently deleted.');
+    } catch(err) {
+      toastSafe('Account action failed: '+(err.message||'Please try again.'));
+      buttons.forEach(btn=>{btn.disabled=false;btn.textContent=btn.dataset.originalText||btn.textContent});
+    }
+  }
   function renderCustomers() {
     const target = document.getElementById('adminCustomers');
     if (!target) return;
     if (state.role !== 'admin') { target.innerHTML = ''; return; }
-    const rows = state.customers || [];
-    target.innerHTML = rows.length ? rows.map(c => `
-      <form class="table-row py-4 flex flex-wrap items-end gap-3" data-customer-form="${safe(c.id)}">
-        <div class="flex items-center gap-3 w-full"><div class="w-11 h-11 rounded-full overflow-hidden border border-[#31536a] bg-[#183b4a] flex items-center justify-center green font-bold">${c.avatar_url?`<img alt="Customer profile" src="${safe(c.avatar_url)}" class="w-full h-full object-cover">`:safe((c.display_name||"C").slice(0,1).toUpperCase())}</div><div class="flex-1 min-w-[180px]">
-          <label class="muted text-xs block mb-2">Display name</label>
-          <input class="field mb-2" name="display_name" maxlength="80" value="${safe(c.display_name)}" placeholder="Customer name">
-          <select class="field mb-2" name="country_code">${countryOptionsHtml(c.country_code)}</select>
-          <select class="field" name="role" ${c.id===user.id?'disabled':''}><option value="customer" ${c.role==='customer'?'selected':''}>Customer role</option><option value="admin" ${c.role==='admin'?'selected':''}>Admin role</option></select>
-          <div class="muted text-[10px] mt-2 break-all">Account ID: ${safe(c.id)} · Country: ${safe(c.country_code||"Not set")}</div></div></div>
+    const rows = (state.customers || []).filter(c=>!c.deleted_at);
+    target.innerHTML = rows.length ? rows.map(c => {
+      const isAdmin=c.role==='admin', blocked=!!c.is_blocked;
+      const status=isAdmin?'ADMINISTRATOR':blocked?'BLOCKED':'ACTIVE';
+      const avatar=c.avatar_url?'<img alt="Customer profile" src="'+safe(c.avatar_url)+'">':safe((c.display_name||'C').slice(0,1).toUpperCase());
+      return `
+      <article class="admin-customer-card">
+        <div class="admin-customer-head">
+          <div class="admin-customer-avatar">${avatar}</div>
+          <div class="flex-1 min-w-0"><div class="admin-customer-name">${safe(c.display_name||'Customer')}</div><div class="admin-customer-meta">${safe(c.country_code||'Country not set')} · Joined ${safe(c.created_at?new Date(c.created_at).toLocaleDateString():'date unavailable')}</div><div class="admin-customer-meta break-all">ID: ${safe(c.id)}</div></div>
+          <span class="admin-account-status ${blocked?'blocked':''}">${status}</span>
         </div>
-        <button class="btn btn-primary" type="submit">Save account</button>
-      </form>`).join('') : '<div class="muted py-5">No customer accounts found.</div>';
+        ${!isAdmin ? `
+        <form class="admin-account-edit" data-customer-form="${safe(c.id)}">
+          <div class="admin-account-fields">
+            <div><label>DISPLAY NAME</label><input class="field" name="display_name" maxlength="80" value="${safe(c.display_name)}" placeholder="Customer name"></div>
+            <div><label>COUNTRY</label><select class="field" name="country_code">${countryOptionsHtml(c.country_code)}</select></div>
+          </div>
+          <div class="admin-account-actions">
+            <button class="btn btn-primary" type="submit">Save profile</button>
+            <button class="btn ${blocked?'btn-primary':'btn-warn'}" type="button" data-account-action="${blocked?'unblock':'block'}" data-account-id="${safe(c.id)}">${blocked?'Unblock account':'Block account'}</button>
+            <button class="btn btn-danger" type="button" data-account-action="delete" data-account-id="${safe(c.id)}">Delete account</button>
+          </div>
+          ${blocked&&c.blocked_reason?'<p class="admin-customer-meta mt-3">Block reason: '+safe(c.blocked_reason)+'</p>':''}
+        </form>` : '<p class="admin-customer-meta mt-4">Administrator accounts are protected from customer block/delete actions.</p>'}
+      </article>`;
+    }).join('') : '<div class="muted py-5">No customer accounts found.</div>';
     target.querySelectorAll('[data-customer-form]').forEach(form => form.onsubmit = async e => {
       e.preventDefault();
       if (state.role !== 'admin' || !user) return toastSafe('Administrator access required.');
-      const id = form.dataset.customerForm;
-      const formData = new FormData(form);
-      const display_name = String(formData.get('display_name') || '').trim().slice(0,80);
-      const country_code = String(formData.get('country_code') || '');
-      const patch = {display_name,country_code,updated_at:new Date().toISOString()};
-      if (id !== user.id && ['customer','admin'].includes(formData.get('role'))) patch.role = formData.get('role');
-      const button = form.querySelector('button[type="submit"]');
-      button.disabled = true;
-      const { error } = await client.from('profiles').update(patch).eq('id',id);
-      button.disabled = false;
-      if (error) return toastSafe('Customer account update failed: '+error.message);
-      log('Customer account updated','Profile settings updated for account '+id.slice(0,8));
-      await reloadAndToast('Customer account saved.');
+      const id=form.dataset.customerForm, formData=new FormData(form);
+      const display_name=String(formData.get('display_name')||'').trim().slice(0,80);
+      const country_code=String(formData.get('country_code')||'');
+      if(!display_name||!country_code)return toastSafe('Enter the display name and country.');
+      const button=form.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Saving…';
+      const {error}=await client.from('profiles').update({display_name,country_code,updated_at:new Date().toISOString()}).eq('id',id);
+      if(error){button.disabled=false;button.textContent='Save profile';return toastSafe('Customer profile could not be saved: '+error.message);}
+      log('Customer profile updated','Profile settings updated for account '+id.slice(0,8));
+      await reloadAndToast('Customer profile saved.');
     });
+    target.querySelectorAll('[data-account-action]').forEach(btn=>btn.onclick=()=>manageCustomerAccount(btn.dataset.accountAction,btn.dataset.accountId));
   }
   renderAll = function() { originalRenderAll(); renderCustomers(); renderAdminSummary(); };
   // The top-up request is stored in the database and remains pending until an admin reviews it.
