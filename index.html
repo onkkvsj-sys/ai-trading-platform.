@@ -507,8 +507,8 @@ function openActivityReceipt(id){
  const reference=String(x.id||'').replace(/-/g,'').slice(0,12).toUpperCase()||'LOCAL-RECORD';
  let status='Recorded',note='This receipt records the account activity shown above. It is not proof of a bank transfer or payment.';
  if(type.includes('top-up')||type.includes('funding')){
-   status=/approved/i.test(x.type||'')?'Reviewed by administrator':/rejected/i.test(x.type||'')?'Request rejected':'Pending administrator review';
-   note='This confirms the funding request record only. It does not confirm that money was received, that a bank transfer occurred, or that a balance was credited.';
+   status=/approved/i.test(x.type||'')?'Approved by administrator':/rejected/i.test(x.type||'')?'Request rejected':'Pending administrator review';
+   note=/approved/i.test(x.type||'')?'This record shows that an administrator approved the request and added the amount to the platform trading balance after payment verification. It is not a bank transfer receipt or proof of a payout.':'This confirms that a funding request was recorded. A pending request does not confirm payment receipt or add funds to the trading balance.';
  }else if(type.includes('simulated')||type.includes('demo trade')||type.includes('position closed')||type.includes('order placed')||type.includes('trade placed')){
    status='Recorded';note='This receipt confirms that the activity was recorded on this platform. It does not confirm execution by an external exchange, a cash transaction, or a bank payment.';
  }
