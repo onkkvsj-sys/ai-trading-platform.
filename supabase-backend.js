@@ -20,6 +20,22 @@
     if (el) { el.textContent = msg || ''; el.style.color = bad ? '#ffb7c2' : '#91a1b7'; }
   };
   const safe = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const COUNTRY_CODES = 'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW XK'.split(' ').concat(['OTHER']);
+  function countryName(code) {
+    if (code === 'OTHER') return document.documentElement.lang === 'es' ? 'Otro / Otra región' : 'Other / Other region';
+    try { return new Intl.DisplayNames([document.documentElement.lang || 'en'], {type:'region'}).of(code) || code; } catch { return code; }
+  }
+  function countryFlag(code) {
+    if (!code || code.length !== 2 || code === 'OTHER') return '🌐';
+    return String.fromCodePoint(...[...code.toUpperCase()].map(c=>127397+c.charCodeAt(0)));
+  }
+  function countryOptionsHtml(selected='') {
+    return '<option value="">'+(document.documentElement.lang==='es'?'Selecciona un país':'Select country')+'</option>'+COUNTRY_CODES.map(code=>'<option value="'+code+'" '+(code===selected?'selected':'')+'>'+countryFlag(code)+' '+safe(countryName(code))+'</option>').join('');
+  }
+  function refreshCountrySelects() {
+    ['authCountry','profileCountry'].forEach(id=>{const el=document.getElementById(id);if(el){const value=el.value;el.innerHTML=countryOptionsHtml(value);el.value=value;}});
+  }
+  window.apexRefreshCountries = refreshCountrySelects;
   const css = document.createElement('style');
   css.textContent = `
     #authGate{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 70% 0%,#17334a 0,transparent 50%),#08111f}
@@ -50,6 +66,7 @@
       <p class="muted text-[11px] leading-relaxed mt-5">Market orders in this workspace are simulated. Never share your password or bank details in messages.</p>
     </div>`;
   document.body.appendChild(gate);
+  refreshCountrySelects();
   document.getElementById('layout').classList.add('hidden');
   let authMode = 'login';
   function setAuthMode(mode) {
@@ -333,7 +350,7 @@
         <div class="flex items-center gap-3 w-full"><div class="w-11 h-11 rounded-full overflow-hidden border border-[#31536a] bg-[#183b4a] flex items-center justify-center green font-bold">${c.avatar_url?`<img alt="Customer profile" src="${safe(c.avatar_url)}" class="w-full h-full object-cover">`:safe((c.display_name||"C").slice(0,1).toUpperCase())}</div><div class="flex-1 min-w-[180px]">
           <label class="muted text-xs block mb-2">Display name</label>
           <input class="field mb-2" name="display_name" maxlength="80" value="${safe(c.display_name)}" placeholder="Customer name">
-          <select class="field mb-2" name="country_code"><option value="">Select country</option><option value="NG" ${c.country_code==='NG'?'selected':''}>🇳🇬 Nigeria</option><option value="MX" ${c.country_code==='MX'?'selected':''}>🇲🇽 Mexico</option><option value="US" ${c.country_code==='US'?'selected':''}>🇺🇸 United States</option><option value="GB" ${c.country_code==='GB'?'selected':''}>🇬🇧 United Kingdom</option><option value="ES" ${c.country_code==='ES'?'selected':''}>🇪🇸 Spain</option><option value="CO" ${c.country_code==='CO'?'selected':''}>🇨🇴 Colombia</option><option value="AR" ${c.country_code==='AR'?'selected':''}>🇦🇷 Argentina</option><option value="BR" ${c.country_code==='BR'?'selected':''}>🇧🇷 Brazil</option><option value="CA" ${c.country_code==='CA'?'selected':''}>🇨🇦 Canada</option><option value="GH" ${c.country_code==='GH'?'selected':''}>🇬🇭 Ghana</option><option value="KE" ${c.country_code==='KE'?'selected':''}>🇰🇪 Kenya</option><option value="ZA" ${c.country_code==='ZA'?'selected':''}>🇿🇦 South Africa</option><option value="IN" ${c.country_code==='IN'?'selected':''}>🇮🇳 India</option><option value="PH" ${c.country_code==='PH'?'selected':''}>🇵🇭 Philippines</option><option value="OTHER" ${c.country_code==='OTHER'?'selected':''}>🌐 Other</option></select>
+          <select class="field mb-2" name="country_code">${countryOptionsHtml(c.country_code)}</select>
           <select class="field" name="role" ${c.id===user.id?'disabled':''}><option value="customer" ${c.role==='customer'?'selected':''}>Customer role</option><option value="admin" ${c.role==='admin'?'selected':''}>Admin role</option></select>
           <div class="muted text-[10px] mt-2 break-all">Account ID: ${safe(c.id)} · Country: ${safe(c.country_code||"Not set")}</div></div></div>
         </div>
