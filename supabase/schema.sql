@@ -143,9 +143,60 @@ for insert to authenticated with check (
   user_id = auth.uid() and execution_mode = 'simulated' and status = 'recorded'
 );
 
--- Create a PRIVATE storage bucket named chat-attachments in Supabase Storage.
--- Recommended object key format: <conversation_owner_id>/<uuid>-<safe-filename>
--- Configure Storage policies separately after creating the bucket; never make attachments public.
--- IMPORTANT: create the first administrator securely in SQL after the owner signs up:
+-- Profile bootstrap, order state, and private chat attachment storage.
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, display_name, role)
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', ''), 'customer')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+for each row execute function public.handle_new_user();
+
+insert into public.app_settings (key, value)
+values ('welcome_gift', '{"amount":250,"title":"Apex Welcome Credit","terms":"Promotional preview credit only. Not cash, a deposit, or a withdrawable balance."}'::jsonb)
+on conflict (key) do nothing;
+
+alter table public.simulated_orders drop constraint if exists simulated_orders_status_check;
+alter table public.simulated_orders add column if not exists realized_pnl numeric(18,2) not null default 0;
+alter table public.simulated_orders add column if not exists closed_at timestamptz;
+alter table public.simulated_orders add constraint simulated_orders_status_check check (status in ('recorded','cancelled','open','closed'));
+drop policy if exists orders_update_own_simulated on public.simulated_orders;
+create policy orders_update_own_simulated on public.simulated_orders for update to authenticated
+using (user_id = auth.uid() and execution_mode = 'simulated')
+with check (user_id = auth.uid() and execution_mode = 'simulated' and status in ('open','closed','cancelled'));
+drop policy if exists profiles_insert_self on public.profiles;
+create policy profiles_insert_self on public.profiles for insert to authenticated
+with check (id = auth.uid() and role = 'customer');
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('chat-attachments', 'chat-attachments', false, 10485760, array['image/jpeg','image/png','image/webp','image/gif','audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','audio/aac','audio/x-m4a'])
+on conflict (id) do update set public = false, file_size_limit = 10485760;
+
+drop policy if exists chat_files_read_owner_or_admin on storage.objects;
+create policy chat_files_read_owner_or_admin on storage.objects for select to authenticated
+using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+drop policy if exists chat_files_insert_owner_or_admin on storage.objects;
+create policy chat_files_insert_owner_or_admin on storage.objects for insert to authenticated
+with check (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+drop policy if exists chat_files_update_owner_or_admin on storage.objects;
+create policy chat_files_update_owner_or_admin on storage.objects for update to authenticated
+using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()))
+with check (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+drop policy if exists chat_files_delete_owner_or_admin on storage.objects;
+create policy chat_files_delete_owner_or_admin on storage.objects for delete to authenticated
+using (bucket_id = 'chat-attachments' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+revoke all on function public.protect_profile_role() from public, anon, authenticated;
+
+-- First administrator: after the owner signs up, run a trusted SQL update for that verified account UUID.
 -- update public.profiles set role = 'admin' where id = '<verified-auth-user-uuid>';
--- Do not expose this role assignment in client-side code.
+-- Do not expose role assignment to browser code or a public signup form.
