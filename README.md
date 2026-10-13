@@ -1,48 +1,100 @@
-# Apex Terminal — Private AI Trading Platform
+# Apex Terminal — AI Trading Platform
 
-A polished, mobile-friendly terminal with public cryptocurrency market data, simulated trading, authenticated customer accounts, and a Supabase-backed support/funding workflow.
+A mobile-first cryptocurrency market terminal with live public market quotes, authenticated customer accounts, a private support inbox, account-funding requests, an account-credit ledger, withdrawal requests, and an administrator workspace.
 
-## Files
+The interface is designed to feel like a polished trading terminal while keeping account permissions and payment status explicit.
 
-- `index.html` — responsive terminal, live public price feed and chart, simulated positions, welcome gift card, top-up request page, inbox, activity history and admin controls.
-- `supabase-backend.js` — Supabase email/password authentication, cloud loading/saving for top-up requests, messages and attachments, welcome gift settings, simulated orders, activity history, and role-based admin UI gating. It uses only the public publishable key.
-- `supabase/schema.sql` — database schema, RLS policies, profile bootstrap trigger, simulated order state, and private chat storage bucket/policies.
+## Product capabilities
 
-## Supabase project
+### Customer workspace
+- Email/password registration, sign-in, sign-out, and account recovery through Supabase Auth.
+- Market overview and price charts powered by public CoinGecko market data. Quote availability and refresh frequency depend on the provider.
+- Account overview with separate records for deposits/top-ups, platform-recorded trading results, earnings credits, and withdrawal requests.
+- Funding-request submission and status history.
+- Private customer/administrator messaging, including photo and audio attachments stored in a private Supabase Storage bucket.
+- Activity history and CSV export.
+- Profile and account settings.
 
-A dedicated Supabase project named **AI Trading Platform** was created for this repository. Its project URL is `https://jyztynjxivznjqnncyev.supabase.co`. The schema and private attachment bucket were applied to that project. The browser code contains the project's publishable key only; never place a service-role key in client code.
+### Administrator workspace
+- Administrator-only customer and platform controls, gated by the customer's database role.
+- Review of customer funding and withdrawal requests.
+- A customer-credit form that records the exact amount and one of two categories:
+  - **Deposit / top-up:** added to the platform's available trading balance.
+  - **Earnings credit:** displayed separately and excluded from available trading funds.
+- Global welcome-benefit settings and customer support tools.
+- Account credits are recorded in a database ledger with row-level security; customers can read only their own records, while authorized administrators can create credits.
 
-## Current behavior
+## Trading and payment scope
 
-- Customer accounts use Supabase Auth. New signups receive a customer profile via a database trigger.
-- Customer top-up requests are stored centrally and remain pending until an administrator reviews them. Approval/rejection updates request status only; it does not claim a payment was received or credit a cash balance.
-- Welcome gift title, amount and terms are stored in `app_settings` and shared across accounts. The gift is explicitly promotional preview credit, not cash or withdrawable funds.
-- Customer/admin messages are persisted in the database. Photos and audio attachments use a private Storage bucket with short-lived signed URLs.
-- Simulated orders are stored in `simulated_orders`; the UI does not send exchange orders.
-- Public crypto prices are fetched from CoinGecko. The provider may rate-limit or fail; the app shows unavailable data rather than inventing prices.
-- Virtual buying power is a simulated trading amount only. It is not a bank balance, deposit, investment account or withdrawable money.
+**Market quotes are public market data. Orders placed in this workspace are recorded by this platform and are not routed to a cryptocurrency exchange.** Trading results are account records, not evidence of an executed exchange trade or a cash payment.
 
-## Required owner setup
+The website does not currently connect to a bank, payment processor, or exchange execution API. A funding request is not proof of payment. Changing a request's status does not send money. A withdrawal request is a request for review, not a completed payout. Before enabling real-money operations, add a trusted server-side payment integration, verify provider webhooks, reconcile deposits and payouts, and obtain any required legal and regulatory review.
 
-1. Deploy the branch `feature/transparent-trading-platform` (or merge its pull request) to your static host. Ensure `index.html` and `supabase-backend.js` are deployed at the same path.
-2. In Supabase Auth settings, configure your production site URL and allowed redirect URLs. Enable email confirmation if desired.
-3. Create your owner account through the website. New accounts intentionally start as customers.
-4. Promote only your verified owner profile to administrator from the Supabase SQL editor, replacing the placeholder with the UUID for your signed-in account:
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `index.html` | Responsive terminal UI, market views, customer pages, account ledger, and administrator interface. |
+| `supabase-backend.js` | Supabase Auth integration, persistent account workflows, messages, private attachment URLs, account credits, and admin UI gating. |
+| `supabase/schema.sql` | Reference SQL for the database schema, role protections, row-level security, indexes, and storage policies. |
+| `.github/CODEOWNERS` | Identifies the repository owner as the reviewer for repository files. |
+| `.github/workflows/validate.yml` | Syntax checks for the browser scripts on pushes and pull requests. |
+| `SECURITY.md` | Security-reporting and deployment-hardening guidance. |
+
+## Supabase configuration
+
+The application uses the dedicated Supabase project named **AI Trading Platform**:
+
+- Project URL: `https://jyztynjxivznjqnncyev.supabase.co`
+- Browser client: the public/publishable key only.
+- Never put a Supabase service-role key, payment secret, bank credential, or other privileged secret in `index.html`, `supabase-backend.js`, or any other client-side file.
+
+The deployed database has row-level security on customer records and account credits. Administrator actions are checked against the authenticated account's database role; hiding an admin button in the browser is not a security boundary by itself.
+
+### Owner account setup
+
+1. In Supabase Authentication, create the owner account through the website and complete email confirmation if enabled.
+2. Find that account's verified Auth user UUID in **Authentication → Users**.
+3. In the Supabase SQL Editor, promote only that verified owner account:
+
    ```sql
-   update public.profiles set role = 'admin'
-   where id = '<your-verified-auth-user-uuid>';
+   update public.profiles
+   set role = 'admin'
+   where id = '<verified-owner-auth-user-uuid>';
    ```
-   The UUID is available in Supabase Authentication → Users. Never add public self-service admin signup or put a service-role key in the browser.
-5. Sign out and back in after the role change. The Admin Center will then be visible only to the verified admin profile.
 
-## Financial integrity and scope
+4. Sign out of the website and sign back in.
+5. Confirm the Admin Center appears only for the administrator account and test a separate customer account to confirm that it cannot access admin operations.
 
-This branch is not connected to a bank or payment processor. It does not execute real trades, accept deposits, transfer money, or process withdrawals. A top-up request is not payment verification. Any future real-money functionality requires a regulated payment provider, trusted server-side webhook verification, audit controls, and separate security review.
+Do not add public self-service administrator signup. Do not promote an account using an email address alone; use the verified Auth user UUID.
 
-## Review
+## Deployment
 
-Changes are proposed in draft pull request [#1](https://github.com/onkkvsj-sys/ai-trading-platform./pull/1). The default `main` branch has not been changed by this work.
+The live Render Static Site is configured to deploy from `feature/transparent-trading-platform`:
 
-## Account access controls
+- Site: [AI Trading Bot](https://ai-trading-platform-1-lgu8.onrender.com)
+- Hosting: Render Static Site
+- Publish directory: `.`
+- Build command: none required for the current static frontend.
+- Supabase URL and public/publishable key are configured in the browser client.
 
-The Admin Center includes a secure customer-account manager with profile editing, block/unblock, and permanent delete actions. Blocking a customer signs them out and denies private database and storage access until the administrator unblocks them. Deleting a customer permanently deletes their Supabase Auth user and cascades owned profile, messages, requests, demo orders, and activity records. Administrator accounts cannot be blocked or deleted through the customer controls. The `manage-customer-account` Supabase Edge Function validates the caller's current session and administrator role server-side; its service-role key is never included in browser code.
+Keep `index.html` and `supabase-backend.js` at the same published path. After changing frontend code, confirm the Render deployment is live and test sign-in, customer/admin separation, account credits, funding requests, messaging, and withdrawal-request validation.
+
+## Code and account security
+
+- Use a private repository if the source code should not be publicly visible.
+- Keep repository write access limited to the owner and trusted collaborators.
+- Configure a GitHub ruleset or branch protection for `main`: require pull requests, require an owner/code-owner review where practical, block force pushes and branch deletion, and prevent bypass where supported.
+- Apply a separate protection rule to the deployed branch if it should not accept unreviewed changes.
+- `CODEOWNERS` requests owner review but **does not enforce protection by itself**; repository rules must be enabled in GitHub Settings.
+- Use unique passwords and multi-factor authentication for GitHub, Render, and Supabase.
+- Never commit service-role keys, access tokens, payment secrets, or bank credentials.
+- Review Supabase RLS policies whenever a table, view, RPC, or storage bucket is added.
+
+## Validation
+
+The GitHub Actions workflow checks the JavaScript syntax of `supabase-backend.js` and the inline scripts in `index.html`. A successful syntax check does not replace browser testing or a security review of live database policies.
+
+## Project status
+
+This is an actively deployed frontend and Supabase-backed account workflow. The public market feed is not an exchange connection, and no live bank/payment or exchange-execution integration is configured.
