@@ -760,7 +760,22 @@
       'Nigeria':['Access Bank','Citibank Nigeria','Ecobank Nigeria','Fidelity Bank','First Bank of Nigeria','First City Monument Bank (FCMB)','Globus Bank','GTBank','Keystone Bank','Moniepoint','OPay','PalmPay','Polaris Bank','Providus Bank','Stanbic IBTC','Sterling Bank','SunTrust Bank','UBA','Union Bank','Unity Bank','Wema Bank','Zenith Bank'],
       'Mexico':['BBVA México','Banorte','Citibanamex','HSBC México','Santander México','Scotiabank México'],
       'United States':['Bank of America','Capital One','Chase','Citibank','PNC Bank','U.S. Bank','Wells Fargo'],
-      'United Kingdom':['Barclays','HSBC UK','Lloyds Bank','Monzo','NatWest','Revolut','Santander UK','Starling Bank']
+      'United Kingdom':['Barclays','HSBC UK','Lloyds Bank','Monzo','NatWest','Revolut','Santander UK','Starling Bank'],
+      'Spain':['Banco Santander','BBVA','CaixaBank','Banco Sabadell','Bankinter','ING España','Unicaja'],
+      'Canada':['RBC Royal Bank','TD Canada Trust','Scotiabank','BMO Bank of Montreal','CIBC','National Bank of Canada','Tangerine'],
+      'Germany':['Deutsche Bank','Commerzbank','Sparkasse','Volksbank','ING Deutschland','DKB','N26'],
+      'France':['BNP Paribas','Crédit Agricole','Société Générale','LCL','Banque Populaire','Caisse d’Epargne','Hello bank!'],
+      'India':['State Bank of India','HDFC Bank','ICICI Bank','Axis Bank','Kotak Mahindra Bank','Punjab National Bank','Bank of Baroda','Paytm Payments Bank'],
+      'Australia':['Commonwealth Bank','Westpac','ANZ','NAB','Macquarie Bank','ING Australia','Bendigo Bank'],
+      'South Africa':['Standard Bank','FNB','Absa','Nedbank','Capitec Bank','Investec'],
+      'Ghana':['GCB Bank','Ecobank Ghana','Absa Bank Ghana','Fidelity Bank Ghana','Stanbic Bank Ghana','CalBank','Access Bank Ghana'],
+      'Kenya':['Equity Bank','KCB Bank','Co-operative Bank','Absa Bank Kenya','NCBA Bank','Standard Chartered Kenya','M-PESA'],
+      'United Arab Emirates':['Emirates NBD','First Abu Dhabi Bank','Abu Dhabi Commercial Bank','Dubai Islamic Bank','Mashreq','RAKBANK'],
+      'Brazil':['Banco do Brasil','Itaú Unibanco','Bradesco','Caixa Econômica Federal','Santander Brasil','Nubank','Banco Inter'],
+      'Philippines':['BDO Unibank','BPI','Metrobank','Land Bank of the Philippines','UnionBank','Security Bank','GCash'],
+      'Japan':['MUFG Bank','Sumitomo Mitsui Banking Corporation','Mizuho Bank','Japan Post Bank','Resona Bank','Rakuten Bank'],
+      'Italy':['Intesa Sanpaolo','UniCredit','Banco BPM','BPER Banca','Poste Italiane','FinecoBank'],
+      'Netherlands':['ING Netherlands','ABN AMRO','Rabobank','de Volksbank','bunq','Revolut']
     };
     const list=lists[country]||['Other bank — availability must be confirmed by support'];
     withdrawBankEl.innerHTML='<option value="">Choose your bank</option>'+list.map(b=>'<option value="'+safe(b)+'">'+safe(b)+'</option>').join('');
