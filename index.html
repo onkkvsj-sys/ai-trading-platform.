@@ -1,316 +1,632 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Apex Global Capital | Institutional AI Trading Terminal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Inter', sans-serif; }</style>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Trading Bot — Intelligent Market Workspace</title>
+<meta name="theme-color" content="#08111f">
+<script src="https://cdn.tailwindcss.com">
+/* Keep every visible navigation control clickable and respect the signed-in workspace role. */
+(function(){
+ const allowedForRole = page => {
+   const role = window.apexCurrentRole || 'customer';
+   if(role === 'admin') return ['admin','messages','profile'].includes(page);
+   return ['overview','markets','trade','funding','messages','history','profile'].includes(page);
+ };
+ const originalGoForRole = go;
+ go = function(page){
+   if(!allowedForRole(page)){
+     const role = window.apexCurrentRole || 'customer';
+     page = role === 'admin' ? 'admin' : 'overview';
+     if(typeof toast === 'function') toast('That section is not available for this account.');
+   }
+   return originalGoForRole(page);
+ };
+ document.querySelectorAll('#sidebar [data-page]').forEach(button=>{
+   button.type='button';
+   button.addEventListener('click', event=>{
+     event.preventDefault();
+     event.stopPropagation();
+     if(!button.classList.contains('hidden')) go(button.dataset.page);
+   });
+ });
+ const syncWorkspaceNavigation = () => {
+   const role=window.apexCurrentRole;
+   if(!role) return;
+   document.querySelectorAll('.customer-only').forEach(el=>el.classList.toggle('hidden',role==='admin'));
+   document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden',role!=='admin'));
+ };
+ syncWorkspaceNavigation();
+ document.addEventListener('apex:role-ready',syncWorkspaceNavigation);
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{color-scheme:dark;--bg:#08111f;--panel:#101c2c;--line:#233246;--muted:#91a1b7;--green:#43e0b0;--blue:#74b8ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% -10%,#17334a 0,transparent 42%),var(--bg);color:#edf4fb;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+.panel{background:linear-gradient(145deg,rgba(19,33,50,.96),rgba(12,23,37,.98));border:1px solid var(--line);border-radius:18px}.muted{color:var(--muted)}.green{color:var(--green)}.btn{border:1px solid #2c4057;border-radius:11px;padding:10px 14px;background:#17283b;color:#edf4fb;font-size:13px;font-weight:650;transition:.18s}.btn:hover{filter:brightness(1.2);transform:translateY(-1px)}.btn-primary{background:linear-gradient(120deg,#24bd91,#43e0b0);color:#05251e;border:0}.btn-danger{background:#3b2029;border-color:#6e3441;color:#ffb9c5}.field{width:100%;background:#081421;border:1px solid #2a3b50;border-radius:10px;padding:11px 12px;color:#edf4fb;outline:none}.field:focus{border-color:#43e0b0}.navitem{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;border-radius:11px;color:#9bacc0;text-align:left;font-size:13px}.navitem.active,.navitem:hover{background:#1a3040;color:#fff}.navitem.active{box-shadow:inset 3px 0 #43e0b0}.eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#8fa2b9;font-weight:750}.metric{font-size:clamp(22px,3vw,31px);letter-spacing:-.04em;font-weight:760}.pill{font-size:10px;border-radius:99px;padding:5px 8px;background:#1b3442;color:#7fe8c8;font-weight:700}.table-row{border-bottom:1px solid #233246}.table-row:last-child{border:0}.tabpage{display:none}.tabpage.active{display:block}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:99;background:#193246;border:1px solid #34556a;padding:12px 18px;border-radius:12px;box-shadow:0 10px 40px #0007;font-size:13px;max-width:90vw}.hidden{display:none!important}
+@media(max-width:800px){#layout{display:block}#sidebar{display:flex;overflow:auto;gap:4px;padding:8px;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--line);background:#091321}#sidebar .brand,#sidebar .navlabel,#sidebar .sidefoot{display:none}#sidebar .navitem{width:auto;white-space:nowrap;padding:10px 12px}#sidebar .navitem span:last-child{display:inline}#sidebar .navitem.active{box-shadow:inset 0 -2px #43e0b0}#main{padding:14px!important}.grid3{grid-template-columns:1fr!important}.grid2{grid-template-columns:1fr!important}.header-right .hide-mobile{display:none}.metric{font-size:25px}}
 
-    <!-- ================= 1. PREMIUM LANDING PAGE ================= -->
-    <div id="landing-screen" class="min-h-screen flex flex-col justify-between">
-        <header class="border-b border-slate-900 px-6 py-4 flex justify-between items-center max-w-7xl w-full mx-auto">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-lg text-slate-950 shadow-lg shadow-emerald-500/20">
-                    AI
-                </div>
-                <span class="font-bold text-lg tracking-wide">Apex Global Capital</span>
-            </div>
-            <div class="flex items-center space-x-4">
-                <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-800 text-xs font-medium">
-                    <button onclick="setGlobalLang('en')" id="land-en" class="px-3 py-1 rounded-md transition bg-emerald-600 text-white">EN</button>
-                    <button onclick="setGlobalLang('es')" id="land-es" class="px-3 py-1 rounded-md transition text-slate-400 hover:text-white">ES</button>
-                </div>
-                <button onclick="openModal('login')" id="nav-signin" class="text-xs font-medium text-slate-300 hover:text-white transition">Sign In</button>
-                <button onclick="openModal('register')" id="nav-getstarted" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-lg shadow-emerald-600/20">Start Trading</button>
-            </div>
-        </header>
+#toast{bottom:24px;left:auto;right:18px;transform:none;width:min(390px,calc(100vw - 32px));padding:16px 18px;border-radius:18px;background:linear-gradient(145deg,#152d40,#101b2c);border:1px solid #3c6c76;box-shadow:0 18px 60px #0009;font-size:14px}
+#welcomeGiftModal{position:fixed;inset:0;z-index:1200;background:rgba(3,9,18,.78);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:20px}
+.gift-receipt{position:relative;width:min(430px,100%);padding:34px 28px 24px;text-align:center;border-radius:26px;border:1px solid #557c83;background:radial-gradient(circle at 50% 0%,#2a4d57 0,transparent 45%),linear-gradient(150deg,#16283b,#0d1726);box-shadow:0 28px 100px #000b}
+.gift-seal{width:62px;height:62px;margin:0 auto 18px;border-radius:20px;display:grid;place-items:center;font-size:30px;color:#08251f;background:linear-gradient(135deg,#43e0b0,#7cbaff);box-shadow:0 8px 30px #43e0b033}
+.gift-receipt h2{font-size:25px;font-weight:800;letter-spacing:-.04em;margin:10px 0}.gift-receipt p{color:#a6b7ca;font-size:13px;line-height:1.65}.gift-rule{height:1px;margin:20px 0;background:repeating-linear-gradient(90deg,#496576 0 7px,transparent 7px 12px)}.gift-item-title{font-size:15px;font-weight:700;color:#dceaf5}.gift-amount{font-size:40px;letter-spacing:-.05em;font-weight:850;color:#6de7c4;margin:8px 0}.gift-terms{margin-bottom:18px}.gift-small{font-size:9px!important;letter-spacing:.2em;margin-top:18px}.gift-close{position:absolute;right:15px;top:10px;background:none;color:#b9c7d5;font-size:28px}
+#profileAvatarButton img,#profileAvatarPreview img{width:100%;height:100%;object-fit:cover}
+@media(max-width:800px){#toast{right:12px;bottom:12px}.gift-receipt{padding:30px 22px 22px}}
+/* Celebration and inbox attention states */
+#accountFlowerLayer{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;border-radius:26px}
+.gift-receipt{overflow:hidden}.gift-receipt>*:not(#accountFlowerLayer){position:relative;z-index:1}
+.account-flower{position:absolute;top:-44px;font-size:24px;opacity:0;animation:flowerDrift 3.8s ease-in forwards;filter:drop-shadow(0 5px 8px #0005)}
+@keyframes flowerDrift{0%{transform:translate3d(0,-20px,0) rotate(0deg) scale(.65);opacity:0}12%{opacity:1}85%{opacity:.9}100%{transform:translate3d(var(--drift),480px,0) rotate(300deg) scale(1.1);opacity:0}}
+.account-success-seal{animation:successPop .7s cubic-bezier(.2,1.5,.5,1) both}
+@keyframes successPop{0%{transform:scale(.2) rotate(-35deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+#inboxNotificationCard{border:1px solid #876c40;background:linear-gradient(120deg,#2b251a,#151e2a);border-radius:20px}
+#inboxNotificationCard .inbox-dot{width:9px;height:9px;border-radius:50%;background:#e8c77d;box-shadow:0 0 0 5px #e8c77d1f}
+#tradeSuccessModal{position:fixed;inset:0;z-index:1300;background:#030914d9;backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px}
+#tradeSuccessModal.hidden{display:none}
+.trade-success-card{width:min(440px,100%);padding:28px;border-radius:24px;border:1px solid #4c6d5c;background:radial-gradient(circle at 90% 0,#24523e 0,transparent 42%),linear-gradient(150deg,#14251f,#0d1724);box-shadow:0 30px 100px #000a}
+@media(prefers-reduced-motion:reduce){.account-flower,.account-success-seal{animation:none!important}}
 
-        <main class="max-w-5xl mx-auto px-6 py-12 text-center space-y-8 my-auto">
-            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span id="hero-badge">Institutional High-Frequency AI Protocol</span>
-            </div>
-            <h1 id="hero-title" class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight">
-                Automated Wealth Through <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Advanced AI Arbitrage</span>
-            </h1>
-            <p id="hero-desc" class="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-                Experience consistent daily profits backed by secure institutional algorithms. Register today, claim your welcome gift capital, and let our AI trade for you 24/7.
-            </p>
-            <div class="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-                <button onclick="openModal('register')" id="btn-start-trading" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-8 py-4 rounded-xl transition shadow-xl shadow-emerald-600/30 text-sm">
-                    Start Trading Now
-                </button>
-                <button onclick="openModal('login')" id="btn-access-terminal" class="bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold px-8 py-4 rounded-xl transition border border-slate-800 text-sm">
-                    Access Terminal
-                </button>
-            </div>
-        </main>
+/* Apex premium admin control room: graphite, midnight blue and restrained champagne */
+:root{--bg:#080c14;--panel:#111925;--line:#283342;--muted:#9aa8ba;--green:#c8a96b;--blue:#a9bedb}
+body{background:radial-gradient(ellipse at 78% -15%,#263247 0,transparent 38%),linear-gradient(160deg,#080c14,#0a101a 55%,#0b111b);color:#edf0f5}
+.panel{background:linear-gradient(145deg,rgba(20,29,42,.98),rgba(13,20,31,.99));border-color:#293544;box-shadow:0 12px 36px #0002}
+.btn-primary{background:linear-gradient(120deg,#a8874b,#e0c58c);color:#17130b;border:1px solid #e0c58c}
+.btn{border-color:#364253;background:#171f2d}.field:focus{border-color:#c8a96b;box-shadow:0 0 0 3px #c8a96b20}
+.navitem.active,.navitem:hover{background:#202a39}.navitem.active{box-shadow:inset 3px 0 #c8a96b}
+.pill{background:#2b281f;color:#e1c88e}.green{color:#e0c58c}.eyebrow{color:#b9a579}
+.status-pill{background:#252b35;color:#d9c99e;border:1px solid #464333;letter-spacing:.08em}
+.admin-console .admin-hero{background:linear-gradient(125deg,#171f2c 0%,#202b3b 55%,#252b35 100%);border:1px solid #465064;box-shadow:inset 0 1px #ffffff0a,0 18px 45px #0003}
+.admin-console .admin-hero:before{content:"";position:absolute;right:-70px;top:-120px;width:300px;height:300px;border:1px solid #c8a96b2b;border-radius:50%;box-shadow:0 0 0 25px #c8a96b08,0 0 0 55px #c8a96b06;pointer-events:none}
+.admin-console .admin-hero>*{position:relative;z-index:1}
+.admin-console .admin-hero .eyebrow{color:#dfc68f}
+.admin-console .admin-hero .pill{background:#2c2b29;color:#e6d5ad;border:1px solid #62583f}
+.admin-console .admin-stat{background:linear-gradient(145deg,#121b28,#0e1520);border:1px solid #354052;min-height:100px;box-shadow:inset 0 1px #ffffff08}
+.admin-console .admin-stat>div:first-child{color:#aeb8c8}
+.admin-console .admin-stat>div:last-child{color:#e7d4a5;font-size:30px}
+.admin-console .admin-security-note{background:#171d27;border:1px solid #675a3c;color:#d6cba9}
+.admin-console .panel{border-color:#303b4a;box-shadow:0 10px 32px #0002}
+.admin-console .panel h2{color:#f0f2f7}
+.admin-console .panel .eyebrow{color:#cbb580}
+.admin-console .admin-system-panel{background:linear-gradient(145deg,#151e2b,#101721)}
+#pageBackBtn{display:inline-flex;align-items:center;gap:8px;border:1px solid #394353;background:#151d29;color:#e7d8b6;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+#pageBackBtn:hover{background:#242d3a;border-color:#b49a63}
+@media(max-width:800px){.header-right{gap:6px!important}.header-right .btn{padding:9px 10px}.customer-language{max-width:128px}.admin-console .admin-hero{padding:20px!important}}
 
-        <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
-            &copy; 2026 Apex Global Capital. Secure Encrypted Node.
-        </footer>
-    </div>
+/* Live monitoring admin dashboard inspired by the supplied reference */
+.admin-live-dashboard{--adm-aqua:#61f4dd;--adm-gold:#e6ca85;--adm-violet:#b8a4ff;--adm-rose:#f29acb}
+.admin-brand-banner{padding:22px;background:linear-gradient(135deg,#151f30,#111b2b 58%,#192337);border-color:#34445c;box-shadow:0 18px 42px #0003}
+.admin-brand-row{display:flex;align-items:center;gap:12px;margin-bottom:20px}.admin-brand-mark{width:52px;height:52px;border:1px solid #bfa66a;color:#e8d39b;display:grid;place-items:center;font-family:Georgia,serif;font-size:34px;background:#111a29}.admin-brand-copy{display:flex;flex-direction:column;gap:4px}.admin-brand-copy strong{font-size:15px;letter-spacing:.15em}.admin-brand-copy strong span{color:#d8c28a}.admin-brand-copy small{font-size:9px;color:#8f9db1;letter-spacing:.17em}.admin-live-chip{margin-left:auto;display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border-radius:12px;border:1px solid #385b5a;background:#122d2d;color:#b5f8e9;font-size:10px;font-weight:800;letter-spacing:.08em;white-space:nowrap}.admin-live-chip i,.admin-brand-footer i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#5bf0be;box-shadow:0 0 12px #5bf0be;animation:adminPulse 1.8s infinite}
+.admin-brand-hero{position:relative;display:flex;align-items:center;gap:18px;min-height:145px;padding:23px;border:1px solid #3b485e;border-radius:24px;background:radial-gradient(ellipse at 80% 0%,#2b3850 0,transparent 52%),linear-gradient(135deg,#202a3c,#131d2d);box-shadow:inset 0 1px #ffffff0b,0 10px 28px #0002;overflow:hidden}.admin-brand-hero:after{content:"";position:absolute;right:-45px;bottom:-120px;width:260px;height:260px;border:1px solid #d6bb7930;border-radius:50%;box-shadow:0 0 0 24px #d6bb7908,0 0 0 48px #d6bb7905}.admin-monogram{font-family:Georgia,serif;font-size:62px;color:#e0c27d;text-shadow:0 0 22px #e0c27d38}.admin-brand-hero .eyebrow{color:#d4bd81}.admin-brand-hero h3{font-size:clamp(17px,3vw,26px);font-weight:850;letter-spacing:-.035em;margin:7px 0;color:#f1eee7}.admin-brand-hero p{font-size:12px;color:#9baac0}.admin-spark{position:absolute;right:22px;top:18px;color:#e6cf93;font-size:26px;animation:adminTwinkle 2.8s ease-in-out infinite}.admin-brand-footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:20px;font-size:9px;font-weight:800;letter-spacing:.1em;color:#93a4b8}.admin-brand-footer span:first-child{display:flex;align-items:center;gap:8px;color:#a6e8d9}
+.admin-live-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.admin-live-card{position:relative;overflow:hidden;min-width:0;padding:18px 17px 10px;border-radius:23px;border:1px solid #334258;background:linear-gradient(145deg,#172438,#111b2b);box-shadow:inset 0 1px #ffffff08,0 12px 28px #0002}.admin-live-card:before{content:"";position:absolute;right:-38px;top:-65px;width:190px;height:150px;border-radius:50%;background:currentColor;opacity:.055;pointer-events:none}.admin-live-card.aqua{color:var(--adm-aqua)}.admin-live-card.gold{color:var(--adm-gold)}.admin-live-card.violet{color:var(--adm-violet)}.admin-live-card.rose{color:var(--adm-rose)}.admin-card-top,.admin-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}.admin-card-top{font-size:12px;color:#b2bfd0}.admin-card-icon{display:grid;place-items:center;width:40px;height:40px;border:1px solid currentColor;border-radius:13px;font-size:23px;color:inherit;text-shadow:0 0 15px currentColor}.admin-card-value{font-size:39px;line-height:1.15;font-weight:850;letter-spacing:-.06em;color:#f2f4f8;margin-top:8px}.admin-card-foot{font-size:10px;color:#94a4b9;margin-top:5px}.admin-card-foot b{font-size:8px;letter-spacing:.12em;border:1px solid currentColor;border-radius:99px;padding:6px 8px;color:inherit}.admin-mini-label{font-size:6px;letter-spacing:.17em;color:#66758a;margin:19px 0 0}.admin-sparkline{width:100%;height:56px;overflow:visible;color:inherit}.spark-track{stroke:#344258;stroke-width:1;fill:none}.spark-path{stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;fill:none;filter:drop-shadow(0 0 5px currentColor);stroke-dasharray:9 8;animation:adminDash 2.5s linear infinite,adminWave 4s ease-in-out infinite;vector-effect:non-scaling-stroke}
+.admin-activity-panel,.admin-conversations{padding:22px;border-color:#2c3a4e;background:linear-gradient(145deg,#152237,#101a2a)}.admin-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;flex-wrap:wrap}.admin-section-head .eyebrow{color:#d3bd80}.admin-section-head h3{font-size:22px;font-weight:800;letter-spacing:-.04em;margin-top:8px;color:#f0f2f6}.admin-section-head p{font-size:12px;color:#91a2b8;margin-top:7px}.admin-chart-legend{display:flex;flex-wrap:wrap;gap:18px;margin:24px 0 8px;color:#9eafc3;font-size:11px}.admin-chart-legend span{display:flex;align-items:center;gap:8px}.admin-chart-legend i{width:8px;height:8px;border-radius:50%;display:inline-block}.legend-aqua{background:#5ff0d6;box-shadow:0 0 10px #5ff0d6}.legend-rose{background:#ff9c78;box-shadow:0 0 10px #ff9c78}.admin-chart-wrap{width:100%;height:160px;overflow:hidden}.admin-chart-wrap svg{width:100%;height:100%;overflow:visible}.chart-grid{stroke:#ffffff0a;stroke-width:1}.admin-chart-line{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:11 8;filter:drop-shadow(0 0 5px currentColor);animation:adminDash 3.5s linear infinite,adminWave 5s ease-in-out infinite;vector-effect:non-scaling-stroke}.chart-aqua{stroke:#5ff0d6;color:#5ff0d6}.chart-rose{stroke:#ff9c78;color:#ff9c78;animation-delay:-1.3s}.admin-chart-footer{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #ffffff0d;padding-top:17px;margin-top:10px;color:#96a6bb;font-size:10px}.admin-chart-footer b{color:#e2cf96;font-size:15px;margin-right:5px}
+.admin-conversation-list{margin-top:18px;border-top:1px solid #ffffff0c}.admin-conversation-row{display:flex;align-items:center;gap:13px;padding:17px 2px;border-bottom:1px solid #ffffff0c}.admin-conversation-avatar{flex:0 0 45px;width:45px;height:45px;display:grid;place-items:center;border-radius:50%;overflow:hidden;border:1px solid #88784e;background:linear-gradient(135deg,#27344a,#151f30);color:#e2cd95;font-family:Georgia,serif;font-size:20px}.admin-conversation-avatar img{width:100%;height:100%;object-fit:cover}.admin-conversation-main{flex:1;min-width:0}.admin-conversation-main strong{display:block;font-size:13px;color:#e8edf5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.admin-conversation-main p{font-size:12px;color:#9baac0;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.admin-conversation-main small{display:block;font-size:10px;color:#687b94;margin-top:7px}.admin-conversation-open{width:42px;height:42px;flex:0 0 42px;border-radius:13px;border:1px solid #34445b;background:#1a293e;color:#e5d09a;font-size:19px}.admin-message-footer{display:flex;align-items:center;gap:12px;margin-top:17px;padding:14px;border:1px solid #2e4056;border-radius:16px;background:#111d2d}.admin-message-footer>div{flex:1;min-width:0}.admin-message-footer strong,.admin-message-footer small{display:block}.admin-message-footer strong{font-size:12px}.admin-message-footer small{font-size:10px;color:#92a3b8;margin-top:5px}.admin-online-dot{width:8px;height:8px;flex:0 0 8px;background:#5ff0bd;border-radius:50%;box-shadow:0 0 12px #5ff0bd}
+@keyframes adminDash{to{stroke-dashoffset:-76}}@keyframes adminWave{0%,100%{opacity:.82}50%{opacity:1}}@keyframes adminPulse{0%,100%{opacity:1;box-shadow:0 0 10px #5bf0be}50%{opacity:.5;box-shadow:0 0 3px #5bf0be}}@keyframes adminTwinkle{0%,100%{transform:rotate(0) scale(1);opacity:.8}50%{transform:rotate(18deg) scale(1.14);opacity:1}}
+@media(min-width:980px){.admin-live-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.admin-brand-banner{padding:28px}.admin-live-card{padding:20px 18px 12px}}
+@media(max-width:420px){.admin-brand-banner{padding:16px}.admin-brand-hero{padding:17px;gap:12px;min-height:125px}.admin-monogram{font-size:46px}.admin-brand-footer{font-size:8px}.admin-live-card{padding:14px 12px 8px;border-radius:18px}.admin-card-top{font-size:10px}.admin-card-icon{width:34px;height:34px}.admin-card-value{font-size:34px}.admin-card-foot{font-size:9px}.admin-section-head h3{font-size:20px}.admin-activity-panel,.admin-conversations{padding:16px}.admin-live-chip{padding:8px 9px;font-size:8px}.admin-message-footer{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.admin-sparkline *, .admin-chart-line,.admin-spark,.admin-live-chip i,.admin-brand-footer i{animation:none!important}}
 
-    <!-- ================= 2. AUTHENTICATION MODAL ================= -->
-    <div id="auth-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 relative">
-            <button onclick="closeModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white">&times;</button>
-            <div class="text-center space-y-2">
-                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 mx-auto flex items-center justify-center font-bold text-xl text-slate-950">AI</div>
-                <h2 id="modal-title" class="text-2xl font-bold tracking-tight">Create Your Account</h2>
-                <p id="modal-sub" class="text-xs text-slate-400">Enter your email to claim your welcome gift.</p>
-            </div>
-            <form onsubmit="handleAuth(event)" class="space-y-4">
-                <div>
-                    <label id="lbl-email" class="block text-xs font-semibold text-slate-400 uppercase mb-1">Email Address</label>
-                    <input type="email" id="user-email" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition" placeholder="name@example.com">
-                </div>
-                <div>
-                    <label id="lbl-pass" class="block text-xs font-semibold text-slate-400 uppercase mb-1">Password</label>
-                    <input type="password" id="user-pass" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 transition" placeholder="••••••••">
-                </div>
-                <button type="submit" id="btn-submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 rounded-xl transition shadow-lg text-sm">
-                    Continue to Dashboard
-                </button>
-            </form>
-        </div>
-    </div>
+/* Refined command-center banner: remove duplicate intro and oversized crypto-hub title */
+.admin-brand-hero{min-height:132px;padding:25px 28px;background:radial-gradient(ellipse at 92% 0%,#d8bd7920 0,transparent 42%),linear-gradient(115deg,#1c283b 0%,#131d2d 70%,#172437 100%);border-color:#45516a}
+.admin-brand-hero h3{font-size:clamp(18px,3vw,25px);letter-spacing:.015em;line-height:1.2}
+.admin-brand-hero p{font-size:12px;letter-spacing:.015em}
+.admin-brand-hero:after{right:-75px;bottom:-145px;width:260px;height:260px;border-color:#d6bb7925;box-shadow:0 0 0 24px #d6bb7907,0 0 0 48px #d6bb7904}
+.admin-hero-status{margin-left:auto;display:flex;align-items:center;gap:10px;position:relative;z-index:1;padding:11px 13px;border:1px solid #3c4a60;background:#121e2e;border-radius:13px;white-space:nowrap}
+.admin-hero-status strong,.admin-hero-status small{display:block}.admin-hero-status strong{font-size:9px;letter-spacing:.1em;color:#dce4ed}.admin-hero-status small{font-size:8px;letter-spacing:.1em;color:#91a3b8;margin-top:4px}
+@media(max-width:520px){.admin-brand-hero{padding:20px 17px;gap:12px;min-height:130px;align-items:flex-start}.admin-hero-status{position:absolute;right:14px;bottom:13px;padding:7px 9px}.admin-brand-hero .admin-monogram{font-size:46px}.admin-brand-hero>div:nth-child(2){max-width:calc(100% - 55px);padding-bottom:36px}.admin-brand-hero h3{font-size:18px}.admin-brand-hero p{font-size:11px}.admin-brand-footer{margin-top:15px}}
 
-    <!-- ================= 3. TRADING TERMINAL DASHBOARD ================= -->
-    <div id="dashboard-screen" class="hidden flex-1 flex flex-col min-h-screen">
-        <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-lg text-slate-950">AI</div>
-                <div>
-                    <h1 id="dash-title" class="font-bold text-lg tracking-wide">Apex Global Capital</h1>
-                    <p id="dash-sub" class="text-xs text-slate-400">Institutional Algorithmic System</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-3">
-                <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700 text-xs font-medium">
-                    <button onclick="setGlobalLang('en')" id="dash-en" class="px-3 py-1.5 rounded-md transition bg-emerald-600 text-white">EN</button>
-                    <button onclick="setGlobalLang('es')" id="dash-es" class="px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white">ES</button>
-                </div>
-                <button onclick="location.reload()" id="btn-logout" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition">Logout</button>
-            </div>
-        </header>
+/* Luxury profile and account-security controls */
+.profile-luxury-hero{position:relative;display:flex;align-items:center;gap:20px;overflow:hidden;padding:25px;border:1px solid #3a465c;background:radial-gradient(ellipse at 100% 0%,#c8a96b20,transparent 42%),linear-gradient(130deg,#1a2638,#101a29 72%);box-shadow:0 18px 38px #0003}
+.profile-luxury-hero:after{content:"";position:absolute;width:210px;height:210px;border:1px solid #c8a96b24;border-radius:50%;right:-90px;bottom:-135px;box-shadow:0 0 0 24px #c8a96b06,0 0 0 48px #c8a96b04;pointer-events:none}
+.profile-luxury-avatar{position:relative;z-index:1;flex:0 0 88px;width:88px;height:88px;border-radius:25px;display:grid;place-items:center;overflow:hidden;border:1px solid #c8a96b;background:linear-gradient(145deg,#28374c,#111b2a);color:#e7cf91;font-family:Georgia,serif;font-size:42px;box-shadow:0 0 24px #c8a96b12}
+.profile-luxury-avatar img{width:100%;height:100%;object-fit:cover}
+.profile-luxury-copy{position:relative;z-index:1;min-width:0}.profile-luxury-copy .eyebrow{color:#d9c38b}.profile-luxury-copy h2{font-size:clamp(22px,4vw,30px);font-weight:850;letter-spacing:-.04em;color:#f1f3f7;margin-top:7px;overflow-wrap:anywhere}.profile-luxury-copy p{font-size:12px;color:#9aaac0;margin-top:6px}.profile-hero-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}.profile-hero-tags span{padding:7px 9px;border-radius:9px;border:1px solid #39475d;background:#121e2d;color:#c7d2df;font-size:9px;font-weight:800;letter-spacing:.08em}.profile-hero-tags span:first-child{border-color:#66583b;color:#e4d09b}.profile-hero-seal{position:absolute;right:24px;top:20px;color:#e2cb8b;font-size:24px;animation:adminTwinkle 3s ease-in-out infinite}
+#page-profile> .panel{border-color:#303d50;background:linear-gradient(145deg,#151f2f,#101824);box-shadow:0 14px 35px #0002}#page-profile #profileAvatarPreview{border:1px solid #c8a96b!important;background:linear-gradient(145deg,#27364a,#101b2b)!important;color:#e6d095!important;box-shadow:0 0 24px #c8a96b10}#page-profile label{letter-spacing:.025em}#page-profile .field{border-color:#344156;background:#0d1725}#page-profile .field:focus{border-color:#c8a96b}
+.admin-account-management{border-color:#364359;background:linear-gradient(145deg,#172337,#101927);box-shadow:0 14px 36px #0002}.admin-account-list{display:grid;gap:13px}.admin-customer-card{padding:17px;border:1px solid #34445a;border-radius:18px;background:linear-gradient(140deg,#19263a,#111b2b);box-shadow:inset 0 1px #ffffff08}.admin-customer-head{display:flex;align-items:center;gap:12px;min-width:0}.admin-customer-avatar{width:54px;height:54px;flex:0 0 54px;overflow:hidden;display:grid;place-items:center;border:1px solid #bca66f;border-radius:17px;background:#121e2d;color:#e4d095;font:25px Georgia,serif}.admin-customer-avatar img{width:100%;height:100%;object-fit:cover}.admin-customer-name{font-size:15px;font-weight:800;color:#edf1f7;overflow-wrap:anywhere}.admin-customer-meta{font-size:10px;color:#8fa0b6;margin-top:5px;overflow-wrap:anywhere}.admin-account-status{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:99px;font-size:9px;font-weight:850;letter-spacing:.08em;border:1px solid #3b6559;background:#102a28;color:#aaf0d9}.admin-account-status.blocked{border-color:#70494c;background:#301b24;color:#ffc0c4}.admin-account-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}.admin-account-fields label{font-size:10px;color:#9eacc0;display:block;margin-bottom:6px}.admin-account-fields .field{font-size:12px;padding:10px}.admin-account-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}.admin-account-actions .btn{font-size:11px;padding:10px 12px}.btn-danger{border-color:#75464d!important;background:linear-gradient(135deg,#3b2029,#251821)!important;color:#ffc5c9!important}.btn-warn{border-color:#75623b!important;background:linear-gradient(135deg,#332b1b,#211d17)!important;color:#e8d39a!important}
+@media(max-width:480px){.profile-luxury-hero{padding:18px;gap:14px;align-items:flex-start}.profile-luxury-avatar{width:68px;height:68px;flex-basis:68px;border-radius:20px;font-size:32px}.profile-luxury-copy h2{font-size:22px}.profile-hero-seal{right:15px;top:12px;font-size:18px}.profile-luxury-copy{padding-right:8px}.admin-customer-head{align-items:flex-start}.admin-account-fields{grid-template-columns:1fr}.admin-customer-card{padding:13px}}
 
-        <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
-            <!-- Simulated Live Market Ticker -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap justify-between items-center gap-4 text-xs font-mono">
-                <div class="flex items-center space-x-3">
-                    <span class="text-emerald-400 font-bold">BTC/USDT</span>
-                    <span id="ticker-btc" class="text-slate-200">63,258.19</span>
-                    <span class="text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">+3.65%</span>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="text-cyan-400 font-bold">ETH/USDT</span>
-                    <span id="ticker-eth" class="text-slate-200">3,339.25</span>
-                    <span class="text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">+2.35%</span>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="text-purple-400 font-bold">AI-ARBITRAGE INDEX</span>
-                    <span class="text-slate-200">99.89% WIN</span>
-                    <span class="text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">Active 24/7</span>
-                </div>
-            </div>
+/* Mobile navigation: horizontal, tap-friendly controls instead of a vertical sidebar stack */
+@media(max-width:800px){
+  #sidebar{
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:8px!important;
+    width:100%;
+    min-width:0;
+    padding:10px 12px!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    box-sizing:border-box;
+    position:sticky;
+    top:0;
+    z-index:100;
+    background:rgba(9,16,28,.97)!important;
+    backdrop-filter:blur(16px);
+    border-bottom:1px solid #344155!important;
+    box-shadow:0 8px 24px #0003;
+  }
+  #sidebar::-webkit-scrollbar{display:none}
+  #sidebar .brand,#sidebar .navlabel,#sidebar .sidefoot{display:none!important}
+  #sidebar .navitem{
+    display:inline-flex!important;
+    flex:0 0 auto!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:8px!important;
+    width:auto!important;
+    min-width:max-content;
+    min-height:46px;
+    white-space:nowrap!important;
+    padding:10px 14px!important;
+    border:1px solid #344155;
+    border-radius:13px!important;
+    background:linear-gradient(145deg,#172233,#111b2a);
+    color:#aab8ca;
+    font-size:12px!important;
+    font-weight:700;
+    line-height:1.1;
+    text-align:center;
+    box-shadow:inset 0 1px #ffffff08;
+    transition:background .18s ease,border-color .18s ease,transform .18s ease;
+  }
+  #sidebar .navitem>span:first-child{font-size:15px;line-height:1}
+  #sidebar .navitem>span:nth-child(2){display:inline!important;white-space:nowrap!important}
+  #sidebar .navitem .pill{margin-left:3px!important;flex:0 0 auto;padding:4px 6px;font-size:9px}
+  #sidebar .navitem.active{
+    background:linear-gradient(135deg,#2a2a28,#1a2432)!important;
+    border-color:#b79a5e!important;
+    color:#f2dfb0!important;
+    box-shadow:inset 0 -2px #c8a96b,0 4px 16px #c8a96b12!important;
+  }
+  #sidebar .navitem:hover{border-color:#64738a;color:#f1f4f8}
+  #sidebar .navitem:active{transform:scale(.98)}
+}
 
-            <!-- System Notice Banner -->
-            <div id="system-banner" class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex items-start space-x-4 text-amber-200">
-                <svg class="w-6 h-6 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <div>
-                    <h4 id="banner-title" class="font-semibold text-sm">System Notice: Active Trading Cycle Required</h4>
-                    <p id="banner-desc" class="text-xs text-amber-300/80 mt-1">Your verification deposit has been credited. Per platform security compliance, active AI trading must be executed before final payout release.</p>
-                </div>
-            </div>
+/* Role visibility must win over the mobile button display rule. */
+@media(max-width:800px){
+  #sidebar .navitem.hidden,
+  #sidebar .customer-only.hidden,
+  #sidebar .admin-only.hidden{display:none!important}
+  #sidebar .navitem:not(.hidden){display:inline-flex!important}
+}
+.aitb-logo{width:42px;height:42px;flex:0 0 42px;border-radius:14px;overflow:hidden;box-shadow:0 8px 22px #43e0b026}.aitb-logo svg{display:block;width:100%;height:100%}.admin-brand-mark{width:54px;height:54px;flex:0 0 54px;display:flex;align-items:center;justify-content:center}.admin-brand-mark svg{width:100%;height:100%;display:block}.admin-monogram{width:70px;height:70px;display:flex;align-items:center;justify-content:center}.admin-monogram svg{width:100%;height:100%;display:block}
 
-            <!-- Portfolio Cards Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <p id="label-bal" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Portfolio Balance</p>
-                    <h2 class="text-3xl font-bold mt-2 text-emerald-400">$6,000.00</h2>
-                    <span id="label-growth" class="inline-block mt-4 text-xs text-emerald-500">+24.8% Live Arbitrage Yield</span>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <p id="label-dep" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Verification Deposit</p>
-                    <h2 class="text-3xl font-bold mt-2 text-cyan-400">$1,000.00</h2>
-                    <span id="badge-dep" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Active Trade Required</span>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <p id="label-gift" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Welcome Gift Capital</p>
-                    <h2 class="text-3xl font-bold mt-2 text-purple-400">$5,000.00</h2>
-                    <span id="badge-gift" class="inline-block mt-4 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Generated Profit Cleared</span>
-                </div>
-            </div>
+/* AI Trading Bot visual refresh: graphite, emerald glass and crisp silver */
+:root{color-scheme:dark;--bg:#070d12;--panel:#101a21;--line:#263a40;--muted:#a5b4bd;--green:#42e3b1;--blue:#83c9ff}
+body{background:radial-gradient(ellipse at 80% -12%,#164238 0,transparent 34%),radial-gradient(ellipse at 5% 45%,#112532 0,transparent 38%),linear-gradient(155deg,#070d12,#0a1118 52%,#071018);color:#f3f8fa}
+.panel{background:linear-gradient(145deg,rgba(19,32,39,.98),rgba(11,20,27,.99));border-color:#263b42;box-shadow:0 16px 44px #0003,inset 0 1px #ffffff08;border-radius:22px}
+.btn{background:linear-gradient(145deg,#1b2a32,#121e25);border-color:#334951;color:#edf7f8;border-radius:13px;min-height:42px}.btn:hover{border-color:#42e3b1;box-shadow:0 8px 24px #42e3b116}.btn-primary{background:linear-gradient(115deg,#2dd5a3,#71f0ca);border:1px solid #67eac4;color:#06251e;box-shadow:0 7px 24px #42e3b120}
+.field{background:#0a141b;border-color:#2b4149;color:#f4f8fa;border-radius:13px}.field:focus{border-color:#42e3b1;box-shadow:0 0 0 3px #42e3b11c}
+.navitem{border:1px solid transparent;border-radius:14px}.navitem.active,.navitem:hover{background:linear-gradient(120deg,#183b35,#152932);color:#f6fffc;border-color:#285b4e}.navitem.active{box-shadow:inset 0 -2px #42e3b1}
+.pill,.status-pill{background:#12352f;color:#79f0ca;border:1px solid #245b4d;letter-spacing:.04em}.green,.eyebrow{color:#65e9c1}.muted{color:#a5b4bd}.table-row{border-color:#253a41}
+#sidebar{background:#091219!important;border-color:#243940!important}#welcomeGiftCard{background:radial-gradient(circle at 88% 8%,#1d5c4b 0,transparent 36%),linear-gradient(120deg,#122e2d,#13232d 60%,#1a2634)!important;border-color:#315b52!important;border-radius:24px!important}
+#welcomeGiftModal{background:rgba(2,8,11,.84)}.gift-receipt{background:radial-gradient(circle at 50% 0%,#1d5b4a 0,transparent 44%),linear-gradient(150deg,#142a2d,#0b171e);border-color:#3a7564;box-shadow:0 30px 110px #000c}.gift-seal{background:linear-gradient(135deg,#42e3b1,#83c9ff);color:#06251e}.gift-amount{color:#6df0c6}
+#toast{background:linear-gradient(145deg,#153a34,#101f28);border-color:#367365}
+#priceChart{filter:drop-shadow(0 0 6px #42e3b11b)}
+.admin-brand-hero,.admin-live-card{background:linear-gradient(145deg,#152b30,#101b24)!important;border-color:#2b4948!important}.admin-monogram,.admin-brand-copy strong span{color:#6deac4!important}.admin-brand-hero .eyebrow{color:#77e9c7!important}.admin-brand-hero h3{color:#f3f8fa!important}.admin-brand-footer span:first-child{color:#79e9c8!important}
+@keyframes valuePulse{0%{text-shadow:0 0 0 #42e3b100}45%{text-shadow:0 0 16px #42e3b15c}100%{text-shadow:0 0 0 #42e3b100}}.live-value-update{animation:valuePulse .8s ease-out}
+@media(max-width:800px){#sidebar{background:#091219!important}.panel{border-radius:20px}.btn{min-height:44px}}
 
-            <!-- Control Panel -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-                <div class="flex justify-between items-center border-b border-slate-800 pb-4">
-                    <div>
-                        <h3 id="panel-title" class="font-bold text-lg">AI Automated Execution Bot</h3>
-                        <p id="panel-sub" class="text-xs text-slate-400">High-frequency institutional micro-arbitrage protocol</p>
-                    </div>
-                    <div class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span id="badge-status">LIVE TRADING ACTIVE</span>
-                    </div>
-                </div>
-                <div class="flex flex-col sm:flex-row gap-4">
-                    <button onclick="executeTrade()" id="btn-trade" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition text-sm shadow-lg shadow-emerald-600/20">
-                        Execute Active Cycle ($1,000 Deposit)
-                    </button>
-                    <button onclick="requestWithdrawal()" id="btn-withdraw" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 px-6 rounded-xl transition border border-slate-700 text-sm">
-                        Request Full Payout Withdrawal
-                    </button>
-                </div>
-            </div>
-        </main>
-    </div>
+/* Multicolor market terminal: every asset, KPI and activity type has its own accent */
+:root{--bg:#080b12;--panel:#121824;--line:#2c3445;--muted:#aab4c5;--green:#53edc0;--blue:#80c7ff}
+body{background:radial-gradient(ellipse at 4% 2%,#40172b 0,transparent 26%),radial-gradient(ellipse at 96% 4%,#152d58 0,transparent 28%),radial-gradient(ellipse at 68% 60%,#102f2d 0,transparent 35%),linear-gradient(145deg,#080b12,#101522 52%,#0a0d15);color:#f8f8fc}
+.panel{background:linear-gradient(145deg,rgba(23,29,43,.97),rgba(14,19,31,.99));border:1px solid #30384a;border-radius:23px;box-shadow:0 18px 46px #0004,inset 0 1px #ffffff0b}
+.btn{border-radius:14px;background:linear-gradient(135deg,#20283a,#171d2b);border-color:#3b455a;color:#f5f6fc}.btn-primary{background:linear-gradient(110deg,#ff5b8b 0%,#b86bff 46%,#65c9ff 100%);border:0;color:#fff;box-shadow:0 8px 28px #a65cff30}.btn-primary:hover{filter:brightness(1.12);box-shadow:0 10px 34px #ff5b8b35}
+.field{background:#0c111c;border-color:#374156;border-radius:14px}.field:focus{border-color:#c084fc;box-shadow:0 0 0 3px #c084fc26}
+.navitem.active,.navitem:hover{background:linear-gradient(110deg,#3a2038,#202b48,#173b3a);border-color:#665077}.navitem.active{box-shadow:inset 0 -3px #f472b6}
+.pill,.status-pill{background:linear-gradient(110deg,#19372f,#242443);color:#9ff5d8;border:1px solid #3b645b}.eyebrow{color:#ff9fca}.green{color:#63e9bf}
+#sidebar{background:rgba(9,13,22,.95)!important;backdrop-filter:blur(18px);border-color:#2e3547!important}
+#page-overview>.grid>div:nth-child(1){border-top:3px solid #fbbf24;background:linear-gradient(145deg,#2d251b,#171c27 70%)}
+#page-overview>.grid>div:nth-child(2){border-top:3px solid #fb7185;background:linear-gradient(145deg,#321c2b,#171b29 70%)}
+#page-overview>.grid>div:nth-child(3){border-top:3px solid #60a5fa;background:linear-gradient(145deg,#1b2740,#171b29 70%)}
+#balance{color:#fbbf24}#pnl{color:#fb7185}#positions{color:#60a5fa}
+#welcomeGiftCard{background:radial-gradient(circle at 90% 10%,#6d2f69 0,transparent 30%),linear-gradient(112deg,#152f42,#31213e 52%,#3b2333)!important;border:1px solid #76527b!important}
+#welcomeGiftCard .eyebrow{color:#ffb4d5!important}#welcomeGiftValue{color:#ffe08a!important}
+#assetList .asset-row,#watchlist .asset-row{border:1px solid transparent;margin:5px 0;transition:transform .18s,border-color .18s,background .18s}
+.asset-row:hover{transform:translateX(3px);background:#ffffff08}
+.asset-icon{width:43px;height:43px;flex:0 0 43px;border-radius:15px;display:grid;place-items:center;font-size:20px;font-weight:850;border:1px solid currentColor;box-shadow:inset 0 0 18px currentColor}
+.asset-bitcoin{background:linear-gradient(110deg,#fbbf2412,#f59e0b08);border-color:#fbbf2445!important}.asset-bitcoin .asset-icon{color:#fbbf24;background:#fbbf241b}.asset-bitcoin .asset-price{color:#ffd166}
+.asset-ethereum{background:linear-gradient(110deg,#a78bfa12,#6366f108);border-color:#a78bfa45!important}.asset-ethereum .asset-icon{color:#b6a2ff;background:#a78bfa1b}.asset-ethereum .asset-price{color:#c4b5fd}
+.asset-solana{background:linear-gradient(110deg,#fb718512,#f472b608);border-color:#fb718545!important}.asset-solana .asset-icon{color:#fb7185;background:#fb71851b}.asset-solana .asset-price{color:#fda4af}
+.asset-ripple{background:linear-gradient(110deg,#60a5fa12,#38bdf808);border-color:#60a5fa45!important}.asset-ripple .asset-icon{color:#60a5fa;background:#60a5fa1b}.asset-ripple .asset-price{color:#93c5fd}
+.asset-binancecoin{background:linear-gradient(110deg,#facc1512,#f59e0b08);border-color:#facc1545!important}.asset-binancecoin .asset-icon{color:#facc15;background:#facc151b}.asset-binancecoin .asset-price{color:#fde047}
+#page-markets .panel:first-child{border-top:3px solid #a78bfa;background:linear-gradient(145deg,#1b1a30,#121824)}
+#page-markets .panel:nth-child(2){border-top:3px solid #38bdf8}
+#chartTitle{color:#c4b5fd}#chartPrice{background:linear-gradient(90deg,#fbbf24,#fb7185,#a78bfa,#60a5fa);background-clip:text;-webkit-background-clip:text;color:transparent}
+#page-trade .panel:first-child{border-top:3px solid #fb7185;background:linear-gradient(145deg,#2b1b2a,#151b29)}
+#page-trade .panel:nth-child(2){border-top:3px solid #fbbf24}
+#tradeSnapshot{color:#f5d7e6}
+#page-funding .panel:first-child{border-top:3px solid #34d399}#page-funding .panel:nth-child(2){border-top:3px solid #60a5fa}
+#page-messages .panel{border-top:3px solid #a78bfa}
+#page-history .panel{border-top:3px solid #fb7185}
+#recentActivity .table-row:nth-child(4n+1) .w-8{background:#342b16;color:#fbbf24}
+#recentActivity .table-row:nth-child(4n+2) .w-8{background:#3a1e30;color:#fb7185}
+#recentActivity .table-row:nth-child(4n+3) .w-8{background:#202849;color:#93c5fd}
+#recentActivity .table-row:nth-child(4n) .w-8{background:#19372f;color:#6ee7b7}
+#priceChart{filter:drop-shadow(0 0 12px #a78bfa1f)}
+#toast{background:linear-gradient(120deg,#3b1d38,#1d2943,#153b35);border-color:#8d5d95}
+.admin-live-card.aqua{color:#4adeca}.admin-live-card.gold{color:#fbbf24}.admin-live-card.violet{color:#c4b5fd}.admin-live-card.rose{color:#fb7185}
+@keyframes colorWave{0%,100%{filter:saturate(1)}50%{filter:saturate(1.55)}}#priceStatus,#feedStatus{display:inline-flex;align-items:center;gap:5px}#priceStatus{background:linear-gradient(90deg,#55e6bc,#a78bfa,#fb7185);background-clip:text;-webkit-background-clip:text;color:transparent;font-weight:800}.pill:has(#priceStatus){background:linear-gradient(105deg,#18372f,#26203e,#3b2031);border-color:#65455f;box-shadow:0 0 20px #a78bfa13}
+@media(max-width:800px){.panel{border-radius:21px}.asset-icon{width:40px;height:40px;flex-basis:40px}#welcomeGiftCard{background:linear-gradient(130deg,#152f42,#30203c 58%,#402437)!important}}
 
-    <!-- Script Logic -->
-    <script>
-        const translations = {
-            en: {
-                heroBadge: "Institutional High-Frequency AI Protocol",
-                heroTitle: "Automated Wealth Through Advanced AI Arbitrage",
-                heroDesc: "Experience consistent daily profits backed by secure institutional algorithms. Register today, claim your welcome gift capital, and let our AI trade for you 24/7.",
-                btnStart: "Start Trading Now",
-                btnAccess: "Access Terminal",
-                navSignin: "Sign In",
-                navGetStarted: "Start Trading",
-                modalReg: "Create Your Account",
-                modalLog: "Sign In to Terminal",
-                modalSub: "Enter your email to claim your welcome gift.",
-                lblEmail: "Email Address",
-                lblPass: "Password",
-                btnSubmit: "Continue to Dashboard",
-                dashTitle: "Apex Global Capital",
-                dashSub: "Institutional Algorithmic System",
-                bannerTitle: "System Notice: Active Trading Cycle Required",
-                bannerDesc: "Your verification deposit has been credited. Per platform security compliance, active AI trading must be executed before final payout release.",
-                labelBal: "Total Portfolio Balance",
-                labelGrowth: "+24.8% Live Arbitrage Yield",
-                labelDep: "Verification Deposit",
-                badgeDep: "Active Trade Required",
-                labelGift: "Welcome Gift Capital",
-                badgeGift: "Generated Profit Cleared",
-                panelTitle: "AI Automated Execution Bot",
-                panelSub: "High-frequency institutional micro-arbitrage protocol",
-                badgeStatus: "LIVE TRADING ACTIVE",
-                btnTrade: "Execute Active Cycle ($1,000 Deposit)",
-                btnWithdraw: "Request Full Payout Withdrawal",
-                logout: "Logout",
-                alertTrade: "System Notice: Active trading cycle initiated. Your verification deposit is participating in live market micro-trades.",
-                alertWithdraw: "Withdrawal Notice: System requires active trading cycle completion on verification deposit prior to total payout release."
-            },
-            es: {
-                heroBadge: "Protocolo de IA Institucional de Alta Frecuencia",
-                heroTitle: "Riqueza Automatizada Mediante Arbitraje de IA Avanzado",
-                heroDesc: "Experimente ganancias diarias constantes respaldadas por algoritmos institucionales seguros. Regístrese hoy, reclame su capital de regalo y deje que nuestra IA opere por usted 24/7.",
-                btnStart: "Comenzar a Operar",
-                btnAccess: "Acceder al Terminal",
-                navSignin: "Iniciar Sesión",
-                navGetStarted: "Comenzar",
-                modalReg: "Cree Su Cuenta",
-                modalLog: "Iniciar Sesión",
-                modalSub: "Ingrese su correo para reclamar su regalo de bienvenida.",
-                lblEmail: "Correo Electrónico",
-                lblPass: "Contraseña",
-                btnSubmit: "Continuar al Panel",
-                dashTitle: "Apex Global Capital",
-                dashSub: "Sistema Algorítmico Institucional",
-                bannerTitle: "Aviso del Sistema: Ciclo de Trading Activo Requerido",
-                bannerDesc: "Su depósito de verificación ha sido acreditado. Según las normas de seguridad de la plataforma, se debe ejecutar el trading de IA activo antes de liberar el pago final.",
-                labelBal: "Saldo Total del Portafolio",
-                labelGrowth: "+24.8% Rendimiento de Arbitraje en Vivo",
-                labelDep: "Depósito de Verificación",
-                badgeDep: "Trading Activo Requerido",
-                labelGift: "Capital de Regalo de Bienvenida",
-                badgeGift: "Ganancia Generada Liquidada",
-                panelTitle: "Bot de Ejecución Automatizada por IA",
-                panelSub: "Protocolo de microarbitraje institucional de alta frecuencia",
-                badgeStatus: "TRADING EN VIVO ACTIVO",
-                btnTrade: "Ejecutar Ciclo Activo (Depósito de $1,000)",
-                btnWithdraw: "Solicitar Retiro de Saldo Total",
-                logout: "Cerrar Sesión",
-                alertTrade: "Aviso del Sistema: Ciclo de trading activo iniciado. Su depósito de verificación participa en microoperaciones de mercado en vivo.",
-                alertWithdraw: "Aviso de Retiro: El sistema requiere completar el ciclo de trading activo en el depósito de verificación antes de liberar el pago total."
-            }
-        };
+/* Private bank withdrawal and earnings cards */
+#withdrawForm .field{border-color:#4a3a53;background:#101622}
+#withdrawForm .field:focus{border-color:#f472b6;box-shadow:0 0 0 3px #f472b620}
+#withdrawBankPreview{transition:background .2s,border-color .2s;box-shadow:inset 0 1px #ffffff0b}
+#withdrawHistory .table-row{padding:14px 0}
+#withdrawResult{border:1px solid #806045;background:linear-gradient(120deg,#35251b,#282034);color:#ffe5b5}
 
-        let lang = 'en';
-        let mode = 'register';
+/* Mobile layout repair: keep account controls and profile text orderly on narrow screens */
+#main>header{min-width:0;align-items:flex-start}
+#main>header>div:first-child{min-width:0;flex:1 1 420px}
+#main>header>div:first-child>div{min-width:0}
+#pageTitle,#pageSubtitle{overflow-wrap:anywhere;word-break:normal}
+.header-right{min-width:0;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}
+#roleBtn{white-space:nowrap;min-width:max-content;word-break:keep-all;overflow-wrap:normal}
+#languageSelect{max-width:100%;white-space:nowrap}
+#profileAvatarButton{flex:0 0 40px}
+#page-profile{min-width:0}
+.profile-luxury-hero{min-width:0}
+.profile-luxury-copy{overflow-wrap:anywhere;word-break:normal}
+.profile-luxury-copy h2{overflow-wrap:anywhere;word-break:normal;line-height:1.18}
+.profile-hero-tags{max-width:100%}
+.profile-hero-tags span{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
+#page-profile .panel{min-width:0}
+#page-profile input,#page-profile select,#page-profile button{max-width:100%}
+#profilePhotoInput{width:100%;min-width:0;font-size:12px;padding:10px}
+#profileForm{min-width:0}
+#profileForm label{line-height:1.45}
+#page-profile .muted{line-height:1.6}
+@media(max-width:800px){
+  #main>header{display:flex;flex-direction:column;align-items:stretch;gap:14px;margin-bottom:20px}
+  #main>header>div:first-child{width:100%;flex:1 1 auto;gap:10px}
+  #pageBackBtn{flex:0 0 auto;padding:8px 10px;font-size:11px}
+  #pageTitle{font-size:clamp(22px,6vw,30px);line-height:1.15}
+  #pageSubtitle{font-size:13px;line-height:1.5;margin-top:6px}
+  .header-right{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto auto 40px;align-items:center;gap:7px;justify-content:stretch}
+  #languageSelect{width:100%!important;min-width:0;font-size:12px;padding:9px 7px!important}
+  .header-right .status-pill{font-size:9px;padding:6px 7px;white-space:nowrap}
+  #roleBtn{font-size:11px;padding:10px 9px;min-width:0;white-space:nowrap}
+  #profileAvatarButton{width:38px!important;height:38px!important}
+  .profile-luxury-hero{display:grid;grid-template-columns:64px minmax(0,1fr);gap:13px;padding:18px;align-items:center}
+  .profile-luxury-avatar{width:64px;height:64px;min-width:64px;flex-basis:64px;border-radius:19px;font-size:30px}
+  .profile-luxury-copy h2{font-size:clamp(20px,5.6vw,27px);max-width:100%;margin-top:6px}
+  .profile-luxury-copy p{font-size:12px;line-height:1.5}
+  .profile-luxury-copy .eyebrow{font-size:9px;letter-spacing:.11em;line-height:1.4}
+  .profile-hero-seal{right:12px;top:10px;font-size:17px}
+  .profile-hero-tags{gap:6px;margin-top:10px}
+  .profile-hero-tags span{font-size:8px;padding:6px 7px;letter-spacing:.04em}
+  #page-profile .panel.p-6{padding:18px!important}
+  #page-profile .text-2xl{font-size:23px;line-height:1.2}
+  #page-profile .flex.flex-col.sm\\:flex-row{gap:18px}
+  #profileAvatarPreview{width:96px;height:96px}
+  #profilePhotoInput{max-width:100%!important}
+  #page-profile form .btn{width:100%}
+}
+@media(max-width:380px){
+  .header-right{grid-template-columns:minmax(0,1fr) auto 38px;gap:6px}
+  .header-right .status-pill{display:none}
+  #roleBtn{font-size:10px;padding:9px 7px}
+  .profile-luxury-hero{grid-template-columns:54px minmax(0,1fr);gap:10px;padding:14px}
+  .profile-luxury-avatar{width:54px;height:54px;min-width:54px;flex-basis:54px}
+  .profile-hero-tags span{font-size:7px}
+}
 
-        function setGlobalLang(selectedLang) {
-            lang = selectedLang;
-            const t = translations[lang];
+/* Polished withdrawal receipt cards */
+.withdrawal-receipt-mini{padding:16px;margin:12px 0;border:1px solid #334257;border-radius:18px;background:linear-gradient(135deg,#151f30,#211c2e 70%,#24202c);box-shadow:0 10px 28px #0002}.bank-mark{width:48px;height:48px;flex:0 0 48px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(135deg,#fb7185,#c084fc 55%,#60a5fa);color:white;font-size:12px;font-weight:900;letter-spacing:.06em}#withdrawResult{padding:18px!important;border:1px solid #39c99b!important;border-radius:16px;background:linear-gradient(135deg,#102e2b,#182439 55%,#2a2035)!important;color:#f0fdf9!important}#withdrawResult .receipt-reference{font-family:ui-monospace,monospace;letter-spacing:.08em;color:#fcd34d}#withdrawResult .receipt-check{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(135deg,#34d399,#60a5fa);color:#071d25;font-weight:900;font-size:22px}#withdrawCountry,#withdrawBank{min-height:52px}
 
-            document.getElementById('land-en').className = lang === 'en' ? "px-3 py-1 rounded-md transition bg-emerald-600 text-white" : "px-3 py-1 rounded-md transition text-slate-400 hover:text-white";
-            document.getElementById('land-es').className = lang === 'es' ? "px-3 py-1 rounded-md transition bg-emerald-600 text-white" : "px-3 py-1 rounded-md transition text-slate-400 hover:text-white";
-            document.getElementById('dash-en').className = lang === 'en' ? "px-3 py-1.5 rounded-md transition bg-emerald-600 text-white" : "px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white";
-            document.getElementById('dash-es').className = lang === 'es' ? "px-3 py-1.5 rounded-md transition bg-emerald-600 text-white" : "px-3 py-1.5 rounded-md transition text-slate-400 hover:text-white";
+/* Premium searchable-feeling brand pickers */
+.native-select-source{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;overflow:hidden!important;clip-path:inset(50%)!important}
+.premium-select{position:relative;width:100%;min-width:0}.premium-select-trigger{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 13px;border:1px solid #334155;border-radius:16px;background:linear-gradient(120deg,#101827,#151b2b);color:#f3f4f6;text-align:left;box-shadow:inset 0 1px #ffffff05;transition:border-color .18s,box-shadow .18s}.premium-select-trigger:focus-visible,.premium-select.open .premium-select-trigger{outline:none;border-color:#a78bfa;box-shadow:0 0 0 3px #a78bfa25}.premium-select-copy{min-width:0;flex:1}.premium-select-title{display:block;font-weight:750;font-size:14px;line-height:1.25}.premium-select-subtitle{display:block;color:#93a4b9;font-size:11px;margin-top:3px}.premium-select-chevron{color:#a8b6c8;font-size:17px;margin-left:auto}.premium-select-menu{display:none;position:absolute;z-index:150;top:calc(100% + 8px);left:0;right:0;max-height:min(360px,55vh);overflow:auto;padding:7px;border:1px solid #39465d;border-radius:18px;background:linear-gradient(145deg,#151f30,#101724 70%,#201b2c);box-shadow:0 24px 65px #000b;overscroll-behavior:contain}.premium-select.open .premium-select-menu{display:block}.premium-select-option{display:flex;align-items:center;gap:11px;width:100%;padding:10px;border:1px solid transparent;border-radius:12px;text-align:left;color:#e5edf7;background:transparent}.premium-select-option:hover,.premium-select-option:focus-visible{outline:none;background:#ffffff09;border-color:#475569}.premium-select-option.selected{background:#a78bfa14;border-color:#a78bfa55}.brand-logo{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:13px;font-weight:900;font-size:12px;letter-spacing:-.04em;color:white;border:1px solid #ffffff20;box-shadow:inset 0 1px #ffffff20,0 5px 18px #0003}.brand-logo.crypto{border-radius:50%;font-size:22px}.brand-logo.small{width:34px;height:34px;flex-basis:34px;border-radius:10px;font-size:10px}.premium-select-option .brand-logo{width:38px;height:38px;flex-basis:38px}.premium-select-option .brand-logo.crypto{font-size:21px}.premium-select-option .option-copy{flex:1;min-width:0}.premium-select-option .option-name{font-size:13px;font-weight:750}.premium-select-option .option-meta{font-size:11px;color:#93a4b9;margin-top:3px}.premium-select-option .option-check{color:#6ee7b7;font-size:16px}.global-announcement{border:1px solid #67568e;background:radial-gradient(ellipse at 95% 0%,#a78bfa22,transparent 45%),linear-gradient(115deg,#17263b,#211d35 70%,#1b2837)}.global-announcement-mark{width:38px;height:38px;flex:0 0 38px;border-radius:12px;display:grid;place-items:center;color:#17132a;background:linear-gradient(135deg,#f8d889,#c4b5fd);font-size:19px}.global-settings-panel .field{width:100%}
+@media(max-width:640px){.premium-select-menu{max-height:45vh}.premium-select-trigger{min-height:54px}.premium-select-option{padding:9px}.brand-logo{width:38px;height:38px;flex-basis:38px}}
 
-            document.getElementById('hero-badge').innerText = t.heroBadge;
-            document.getElementById('hero-title').innerHTML = lang === 'es' ? 'Riqueza Automatizada Mediante <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Arbitraje de IA Avanzado</span>' : 'Automated Wealth Through <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Advanced AI Arbitrage</span>';
-            document.getElementById('hero-desc').innerText = t.heroDesc;
-            document.getElementById('btn-start-trading').innerText = t.btnStart;
-            document.getElementById('btn-access-terminal').innerText = t.btnAccess;
-            document.getElementById('nav-signin').innerText = t.navSignin;
-            document.getElementById('nav-getstarted').innerText = t.navGetStarted;
+/* Refined account header and activity records */
+.workspace-header{position:relative;display:grid!important;grid-template-columns:minmax(0,1fr);gap:16px!important;padding:20px!important;border:1px solid #2b4057;border-radius:24px;background:radial-gradient(ellipse at 100% 0%,#4f46e51a,transparent 42%),linear-gradient(135deg,#111b2a 0%,#151b2c 55%,#201a2d 100%);box-shadow:0 18px 45px #02061745;margin-bottom:16px!important;overflow:hidden}
+.workspace-header:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#f472b6,#a78bfa,#67e8f9)}
+.workspace-header>div:first-child{align-items:flex-start;min-width:0;gap:13px}.workspace-header #pageBackBtn{flex:0 0 auto;border:1px solid #334155;background:#0d1522;border-radius:13px;padding:10px 12px;color:#cbd5e1;font-size:12px;font-weight:750}.workspace-header #platformBrandName{font-size:10px;letter-spacing:.2em;color:#c4b5fd;margin-bottom:7px}.workspace-header #pageTitle{font-size:clamp(25px,3vw,34px);line-height:1.12;letter-spacing:-.035em}.workspace-header #pageSubtitle{max-width:560px;line-height:1.55;color:#9eacc0;font-size:13px}.workspace-header .header-right{display:flex;align-items:center;justify-content:flex-start;gap:9px;min-width:0;flex-wrap:wrap;padding-top:13px;border-top:1px solid #ffffff10}.workspace-header #languageSelect{width:auto!important;max-width:100%;min-height:42px;border-radius:13px;background:#0b1320;padding:9px 12px!important;font-size:12px}.workspace-header .status-pill{background:linear-gradient(120deg,#1a3b3a,#252342)!important;color:#a7f3d0!important;border:1px solid #3e6865!important;font-size:10px;letter-spacing:.09em;font-weight:850;padding:9px 11px}.workspace-header #roleBtn{min-height:42px;padding:9px 13px;border-radius:13px;font-size:12px;background:#172337;border-color:#35445b}.workspace-header #profileAvatarButton{width:42px;height:42px;flex-basis:42px;border-color:#9b8bd9;box-shadow:0 0 0 3px #a78bfa15}
+#main>.feed-status-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 20px;padding:11px 14px;border:1px solid #26384e;border-radius:15px;background:linear-gradient(110deg,#101a29,#111827);font-size:12px}#main>.feed-status-bar .pill{font-size:11px}
+#page-history .activity-heading{display:flex;align-items:flex-start;gap:12px}#page-history .activity-heading-icon{width:46px;height:46px;flex:0 0 46px;display:grid;place-items:center;border:1px solid #68568b;border-radius:15px;background:linear-gradient(145deg,#2b2948,#17283a);color:#d8c8ff;font-size:21px}#page-history .activity-ledger-title{font-size:21px;letter-spacing:-.025em}#page-history .activity-ledger-subtitle{font-size:12px;line-height:1.55;color:#94a3b8;max-width:340px}
+.activity-record{display:flex;align-items:center;gap:12px;width:100%;padding:15px 0;border:0;border-top:1px solid #ffffff0d;background:transparent;text-align:left;color:inherit;cursor:pointer}.activity-record:first-child{border-top:0}.activity-record:hover .activity-record-card{border-color:#8b7ac7;background:#1a2638}.activity-record:focus-visible{outline:2px solid #a78bfa;outline-offset:3px;border-radius:14px}.activity-record-icon{width:43px;height:43px;flex:0 0 43px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#1c3447,#20223a);border:1px solid #35465e;color:#b8f7e5;font-size:18px}.activity-record-main{flex:1;min-width:0}.activity-record-title{font-size:14px;font-weight:800;line-height:1.35;color:#edf2fa}.activity-record-detail{font-size:12px;color:#9baac0;line-height:1.55;margin-top:4px;overflow-wrap:anywhere}.activity-record-date{font-size:10px;color:#74859b;margin-top:6px}.activity-record-card{display:flex;align-items:center;gap:6px;padding:9px 10px;border:1px solid #35435a;border-radius:12px;background:#131e2e;color:#d4c9ff;font-size:11px;font-weight:800;white-space:nowrap;transition:.18s}
+#activityReceiptModal{position:fixed;inset:0;z-index:1400;display:flex;align-items:center;justify-content:center;padding:16px;background:#020617c9;backdrop-filter:blur(12px)}.activity-receipt{position:relative;width:min(480px,100%);max-height:min(88vh,760px);overflow:auto;padding:25px;border:1px solid #435773;border-radius:25px;background:radial-gradient(ellipse at 100% 0%,#a78bfa20,transparent 42%),linear-gradient(145deg,#172337,#0d1522 68%,#211b31);box-shadow:0 30px 100px #000b}.activity-receipt-head{display:flex;align-items:center;gap:12px;padding-bottom:19px;border-bottom:1px dashed #536176}.activity-receipt-seal{width:48px;height:48px;flex:0 0 48px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#a7f3d0,#a5b4fc);color:#102033;font-size:22px}.activity-receipt-row{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:12px 0;border-bottom:1px solid #ffffff0c;font-size:12px}.activity-receipt-row span:first-child{color:#91a2b9}.activity-receipt-row span:last-child{text-align:right;color:#edf2fa;overflow-wrap:anywhere;max-width:65%}.activity-receipt-note{margin-top:17px;padding:12px;border:1px solid #33445b;border-radius:13px;background:#0c1624;color:#aab8ca;font-size:11px;line-height:1.65}.activity-receipt-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+@media(max-width:640px){#main{padding:12px!important}.workspace-header{padding:16px!important;border-radius:19px;gap:13px!important}.workspace-header>div:first-child{flex:1 1 100%;gap:10px}.workspace-header #pageBackBtn{padding:9px 10px}.workspace-header .header-right{justify-content:flex-start;gap:7px}.workspace-header #languageSelect{min-height:39px;font-size:11px}.workspace-header #roleBtn{min-height:39px;padding:8px 10px;font-size:11px}.workspace-header #profileAvatarButton{width:39px;height:39px;flex-basis:39px}#main>.feed-status-bar{margin-bottom:15px;padding:10px 11px}#page-history .panel{padding:16px!important}.activity-record{gap:9px;padding:13px 0}.activity-record-icon{width:38px;height:38px;flex-basis:38px;border-radius:12px}.activity-record-card{padding:8px;font-size:0}.activity-record-card span{font-size:16px}.activity-receipt{padding:20px;border-radius:21px}}
 
-            document.getElementById('modal-title').innerText = mode === 'register' ? t.modalReg : t.modalLog;
-            document.getElementById('modal-sub').innerText = t.modalSub;
-            document.getElementById('lbl-email').innerText = t.lblEmail;
-            document.getElementById('lbl-pass').innerText = t.lblPass;
-            document.getElementById('btn-submit').innerText = t.btnSubmit;
+@media print{body>*{visibility:hidden!important}#activityReceiptModal,#activityReceiptModal *{visibility:visible!important}#activityReceiptModal{display:flex!important;position:absolute;inset:0;background:#fff!important;padding:0!important;backdrop-filter:none!important}#activityReceiptModal .activity-receipt{color:#111;background:#fff;border:1px solid #aaa;box-shadow:none;max-height:none;overflow:visible;width:100%;max-width:100%;border-radius:0}#activityReceiptModal .activity-receipt-row span:first-child,#activityReceiptModal .activity-receipt-row span:last-child,#activityReceiptModal .activity-receipt-note{color:#222!important}#activityReceiptModal .activity-receipt-actions,#activityReceiptClose{display:none!important}}
+/* Live monitor: color-coded markets, live movement and transparent ledger */
+#page-overview .panel:has(#portfolioChart){border:1px solid #27667a;background:radial-gradient(ellipse at 95% 0,#0e749022,transparent 42%),linear-gradient(145deg,#102733,#111827 62%,#121b2c);box-shadow:0 12px 42px #02061755}
+#page-overview .panel:has(#portfolioChart) .eyebrow{color:#67e8f9!important}#portfolioAvailable{color:#67e8f9!important;text-shadow:0 0 18px #22d3ee30}#portfolioEquity{color:#a7f3d0!important;text-shadow:0 0 18px #34d39928}
+.asset-row{position:relative;overflow:hidden}.asset-row .asset-price{transition:color .25s,transform .25s}.asset-row.price-tick-up .asset-price{color:#6ee7b7!important;animation:priceUp .8s ease}.asset-row.price-tick-down .asset-price{color:#fda4af!important;animation:priceDown .8s ease}
+@keyframes priceUp{0%{transform:translateY(5px);opacity:.55}45%{transform:translateY(-2px);opacity:1}100%{transform:translateY(0)}}@keyframes priceDown{0%{transform:translateY(-5px);opacity:.55}45%{transform:translateY(2px);opacity:1}100%{transform:translateY(0)}}
+.position-card{position:relative;border:1px solid #2a3a50;border-radius:18px;padding:14px!important;margin:10px 0;background:linear-gradient(120deg,#172234,#111827);box-shadow:0 8px 24px #02061725;transition:border-color .25s,transform .25s}.position-card:hover{transform:translateY(-2px)}
+.position-card.position-bitcoin{border-left:4px solid #fbbf24;background:linear-gradient(110deg,#fbbf2410,#151d2c 46%)}.position-card.position-ethereum{border-left:4px solid #a78bfa;background:linear-gradient(110deg,#a78bfa12,#151d2c 46%)}.position-card.position-solana{border-left:4px solid #fb7185;background:linear-gradient(110deg,#fb718512,#151d2c 46%)}.position-card.position-ripple{border-left:4px solid #60a5fa;background:linear-gradient(110deg,#60a5fa12,#151d2c 46%)}.position-card.position-binancecoin{border-left:4px solid #facc15;background:linear-gradient(110deg,#facc1512,#151d2c 46%)}
+.position-card .position-icon{box-shadow:inset 0 0 16px currentColor;border:1px solid currentColor}.position-card .text-sm.mt-2.font-bold{padding:5px 9px;border-radius:999px;width:max-content;max-width:100%;background:#0b1724;border:1px solid #334155;font-variant-numeric:tabular-nums}.position-card .text-sm.mt-2.font-bold:has(.green){color:#6ee7b7}.position-card .text-sm.mt-2.font-bold:has(.text-rose-300){color:#fda4af}
+#accountLedger{overflow:hidden;border:1px solid #2c465b;background:linear-gradient(150deg,#142333,#101722)}.ledger-row{display:flex;align-items:center;gap:12px;padding:14px 2px;border-bottom:1px solid #26364a}.ledger-row:last-child{border-bottom:0}.ledger-icon{width:42px;height:42px;flex:0 0 42px;border-radius:14px;display:grid;place-items:center;font-size:18px;border:1px solid #42546b;background:#1b2b40}.ledger-title{font-weight:750;font-size:14px}.ledger-detail{font-size:12px;color:#9caec2;margin-top:4px}.ledger-amount{font-weight:800;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.ledger-status{display:inline-block;font-size:10px;letter-spacing:.08em;font-weight:800;padding:4px 7px;border-radius:999px;background:#334155;color:#dbeafe;margin-top:5px}
+@media(max-width:640px){.position-card{gap:10px!important}.position-card .position-icon{width:36px;height:36px;flex-basis:36px}.ledger-row{align-items:flex-start}.ledger-amount{font-size:13px}}@media(prefers-reduced-motion:reduce){.asset-row.price-tick-up .asset-price,.asset-row.price-tick-down .asset-price{animation:none!important}.position-card{transition:none}}
+/* Full-width mobile position cards and honest live-market movement */
+.position-history-panel,#tradeHistory{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.position-card{width:100%;max-width:100%;min-width:0;box-sizing:border-box;display:grid!important;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:12px!important;padding:15px!important;border-radius:18px!important;overflow:hidden}
+.position-card .position-icon{grid-column:1;grid-row:1;width:42px;height:42px}
+.position-card .position-details{grid-column:2;grid-row:1;min-width:0;width:100%;overflow-wrap:anywhere}
+.position-card .position-action{grid-column:2;grid-row:2;justify-self:start;max-width:100%;min-height:44px;margin-top:2px}
+.position-card .position-status{grid-column:2;grid-row:2;justify-self:start;align-self:center}
+.position-card .position-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.position-card .position-current-price{font-variant-numeric:tabular-nums;font-weight:700}
+.position-card .position-pnl{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;width:max-content;max-width:100%;overflow-wrap:anywhere}
+.position-card.price-tick-up{animation:positionPulseUp .8s ease-out}
+.position-card.price-tick-down{animation:positionPulseDown .8s ease-out}
+.position-current-price.price-tick-up,.position-pnl.price-tick-up{animation:priceUp .75s ease-out}
+.position-current-price.price-tick-down,.position-pnl.price-tick-down{animation:priceDown .75s ease-out}
+.live-market-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #236c54;background:#10372c;color:#80f0c6;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:850;letter-spacing:.09em;white-space:nowrap}
+.live-market-pill i,.market-pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#48e2a2;box-shadow:0 0 0 0 #48e2a288;animation:marketHeartbeat 1.8s infinite}
+.market-update-note{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:15px;padding:10px 12px;border:1px solid #263d50;border-radius:12px;background:linear-gradient(90deg,#102b29,#151d30 55%,#2a1c30);color:#a9bbce;font-size:11px}
+#positionUpdatedAt{margin-left:auto;color:#7fe8c8;font-variant-numeric:tabular-nums}
+@keyframes marketHeartbeat{0%{box-shadow:0 0 0 0 #48e2a277;opacity:1}70%{box-shadow:0 0 0 7px #48e2a200;opacity:.82}100%{box-shadow:0 0 0 0 #48e2a200;opacity:1}}
+@keyframes positionPulseUp{0%{border-color:#2a3a50}35%{border-color:#34d399;box-shadow:0 0 0 2px #34d39920,0 8px 26px #02061725}100%{border-color:#2a3a50}}
+@keyframes positionPulseDown{0%{border-color:#2a3a50}35%{border-color:#fb7185;box-shadow:0 0 0 2px #fb718520,0 8px 26px #02061725}100%{border-color:#2a3a50}}
+@media(max-width:800px){.position-card{grid-template-columns:38px minmax(0,1fr);gap:10px!important;padding:13px!important}.position-card .position-icon{width:38px;height:38px}.position-card .position-action{grid-column:2}.position-card .position-details{overflow-wrap:anywhere;word-break:normal}.position-card .position-details .muted{line-height:1.5}#positionUpdatedAt{margin-left:0;width:100%}}
+@media(prefers-reduced-motion:reduce){.live-market-pill i,.market-pulse,.position-card.price-tick-up,.position-card.price-tick-down,.position-current-price.price-tick-up,.position-current-price.price-tick-down,.position-pnl.price-tick-up,.position-pnl.price-tick-down{animation:none!important}}
 
-            document.getElementById('dash-title').innerText = t.dashTitle;
-            document.getElementById('dash-sub').innerText = t.dashSub;
-            document.getElementById('banner-title').innerText = t.bannerTitle;
-            document.getElementById('banner-desc').innerText = t.bannerDesc;
-            document.getElementById('label-bal').innerText = t.labelBal;
-            document.getElementById('label-growth').innerText = t.labelGrowth;
-            document.getElementById('label-dep').innerText = t.labelDep;
-            document.getElementById('badge-dep').innerText = t.badgeDep;
-            document.getElementById('label-gift').innerText = t.labelGift;
-            document.getElementById('badge-gift').innerText = t.badgeGift;
-            document.getElementById('panel-title').innerText = t.panelTitle;
-            document.getElementById('panel-sub').innerText = t.panelSub;
-            document.getElementById('badge-status').innerText = t.badgeStatus;
-            document.getElementById('btn-trade').innerText = t.btnTrade;
-            document.getElementById('btn-withdraw').innerText = t.btnWithdraw;
-            document.getElementById('btn-logout').innerText = t.logout;
-        }
 
-        function openModal(m) {
-            mode = m;
-            const t = translations[lang];
-            document.getElementById('modal-title').innerText = mode === 'register' ? t.modalReg : t.modalLog;
-            document.getElementById('auth-modal').classList.remove('hidden');
-        }
+/* Make customer earnings explicit and easy to find above the trade list */
+.earnings-summary{border:1px solid #30465a;border-radius:18px;padding:15px;background:linear-gradient(135deg,#102a2a 0%,#152033 52%,#2a1b31 100%);box-shadow:inset 0 1px #ffffff08}
+.earnings-summary-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+.earnings-refresh{font-size:10px;color:#9eb4c9;border:1px solid #30465a;border-radius:999px;padding:6px 9px}
+.earnings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.earnings-tile{min-width:0;border:1px solid #304156;border-radius:13px;padding:12px;background:#0c1725}
+.earnings-tile>span{display:block;font-size:11px;color:#a9bacb;line-height:1.4}
+.earnings-tile>strong{display:block;font-size:clamp(19px,3vw,27px);font-weight:850;letter-spacing:-.035em;margin-top:8px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.earnings-tile>small{display:block;color:#93a6bb;font-size:10px;line-height:1.45;margin-top:7px}
+.earnings-closed>strong,.earnings-open>strong{color:#6ee7b7}
+.earnings-total{border-color:#5b4773;background:linear-gradient(135deg,#171d32,#2a1c36)}
+.earnings-total>strong{color:#c4b5fd}
+.earnings-tile>strong.earnings-loss{color:#fda4af}
+.earnings-footnote{margin-top:12px;padding:10px 11px;border-radius:10px;background:#0c1522;border:1px solid #27374a;color:#9fb0c4;font-size:11px;line-height:1.55}
+@media(max-width:800px){.earnings-grid{grid-template-columns:1fr}.earnings-tile{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center}.earnings-tile>span{grid-column:1}.earnings-tile>strong{grid-column:2;grid-row:1/3;margin:0;text-align:right;font-size:23px}.earnings-tile>small{grid-column:1}.earnings-summary{padding:12px}.earnings-refresh{font-size:9px}}
 
-        function closeModal() {
-            document.getElementById('auth-modal').classList.add('hidden');
-        }
+</style></head>
+<body>
 
-        function handleAuth(e) {
-            e.preventDefault();
-            closeModal();
-            document.getElementById('landing-screen').classList.add('hidden');
-            document.getElementById('dashboard-screen').classList.remove('hidden');
-        }
+<div id="layout" class="min-h-screen md:flex hidden">
+<aside id="sidebar" class="w-full md:w-[238px] md:min-h-screen md:sticky md:top-0 md:h-screen p-4 flex flex-col gap-5">
+<div class="brand flex items-center gap-3 px-2 pt-2"><div class="aitb-logo" aria-label="AI Trading Bot logo"><svg viewBox="0 0 48 48" role="img" aria-hidden="true"><defs><linearGradient id="aitbLogoGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#43e0b0"/><stop offset="1" stop-color="#7cbaff"/></linearGradient></defs><rect x="2" y="2" width="44" height="44" rx="14" fill="url(#aitbLogoGradient)"/><path d="M14 18h20a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V21a3 3 0 0 1 3-3Z" fill="#08201f"/><path d="M24 11v6M19 12h10" stroke="#08201f" stroke-width="2.5" stroke-linecap="round"/><circle cx="18.5" cy="25" r="2" fill="#43e0b0"/><circle cx="29.5" cy="25" r="2" fill="#7cbaff"/><path d="M18 30h12" stroke="#43e0b0" stroke-width="2.5" stroke-linecap="round"/></svg></div><div><div class="font-bold tracking-wide">AI <span class="green">TRADING BOT</span></div><div class="muted text-[10px] tracking-widest mt-1">INTELLIGENT MARKET WORKSPACE</div></div></div>
+<div class="navlabel eyebrow px-3 mt-2">Workspace</div>
+<button class="navitem active customer-only" data-page="overview"><span>◈</span><span data-i18n="overview">Overview</span></button>
+<button class="navitem customer-only" data-page="markets"><span>⌁</span><span data-i18n="markets">Markets & chart</span></button>
+<button class="navitem customer-only" data-page="trade"><span>↗</span><span data-i18n="strategy">Trade & portfolio</span></button>
+<button class="navitem customer-only" type="button" data-page="trade" data-earnings-jump><span>＄</span><span>My earnings</span></button>
+<button class="navitem customer-only" data-page="funding"><span>＋</span><span data-i18n="funding">Funding requests</span></button>
+<button class="navitem" data-page="messages"><span>◌</span><span data-i18n="messages">Messages</span> <b id="messageCount" class="pill ml-auto">0</b><b id="unreadCount" class="pill hidden ml-1">0</b></button>
+<button class="navitem customer-only" data-page="history"><span>≡</span><span data-i18n="activity">Activity history</span></button>
+<button class="navitem" data-page="profile"><span>◉</span><span data-i18n="profile">My profile</span></button>
+<div class="navlabel eyebrow px-3 mt-4">Management</div>
+<button class="navitem admin-only hidden" data-page="admin"><span>⚙</span><span data-i18n="admin">Admin center</span></button>
+<div class="sidefoot mt-auto panel p-4"><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs font-semibold">Market feed</span><span id="feedStatus" class="muted text-[10px] ml-auto">Connecting</span></div><p class="muted text-[11px] leading-relaxed mt-3">Live market prices where available · Trading records stay within this platform.</p></div>
+</aside>
+<main id="main" class="flex-1 min-w-0 p-5 md:p-8 max-w-[1600px] mx-auto">
+<header class="workspace-header flex flex-wrap items-center justify-between gap-4 mb-7"><div class="flex items-start gap-3"><button id="pageBackBtn" type="button" aria-label="Go back">← Back</button><div><div id="platformBrandName" class="eyebrow mb-2" data-i18n="workspace">AI Trading Bot</div><h1 id="pageTitle" class="text-2xl md:text-3xl font-bold tracking-tight">Market overview</h1><p id="pageSubtitle" class="muted text-sm mt-2">Your market desk, strategy signals and portfolio at a glance.</p></div></div><div class="header-right flex items-center gap-2"><select id="languageSelect" class="field customer-language" aria-label="Language" style="width:auto;padding:8px 10px"><option value="en">🇬🇧 English</option><option value="es">🇪🇸 Español</option></select><span class="pill status-pill">MARKET DATA</span><button class="btn" id="roleBtn">Account</button><button id="profileAvatarButton" class="w-10 h-10 rounded-full border border-[#31536a] bg-[#183b4a] flex items-center justify-center font-bold green overflow-hidden" aria-label="Open profile">A</button></div></header>
+<div class="feed-status-bar"><span class="pill">● Market data: <span id="priceStatus">Loading</span></span><span class="muted text-xs">Last refreshed <span id="updatedAt">—</span></span></div>
+<div id="globalAnnouncement" class="hidden panel p-4 md:p-5 global-announcement customer-only"><div class="flex items-start gap-3"><span class="global-announcement-mark">✦</span><div class="min-w-0"><div id="globalAnnouncementTitle" class="font-bold text-base"></div><p id="globalAnnouncementText" class="muted text-sm mt-1"></p></div></div></div>
+<section id="page-overview" class="tabpage active space-y-5 customer-only">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 grid3">
+<div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Available trading balance</span><span class="muted">◉</span></div><div id="balance" class="metric mt-4">$0.00</div><div class="muted text-xs mt-3">Funds from requests approved after payment review</div></div>
+<div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Portfolio P/L</span><span class="muted">↗</span></div><div id="pnl" class="metric mt-4">$0.00</div><div class="muted text-xs mt-3">Live estimate from open positions and recorded closes</div></div>
+<div class="panel p-5"><div class="flex justify-between items-center"><span class="muted text-sm">Open positions</span><span class="muted">⌁</span></div><div id="positions" class="metric mt-4">0</div><div class="muted text-xs mt-3">Positions currently being tracked</div></div>
+</div>
+<div class="panel p-5 md:p-6"><div class="flex flex-wrap items-center justify-between gap-3"><div><div class="eyebrow mb-1">PORTFOLIO MONITOR</div><h2 class="text-xl font-bold">Portfolio performance</h2><p class="muted text-sm mt-1">Watch your tracked position value move as public market prices refresh.</p></div><button type="button" class="btn btn-primary" data-goto="trade">↗ Open trading</button></div><div class="grid grid-cols-2 gap-3 mt-5"><div class="rounded-xl p-3" style="background:#0d1927;border:1px solid #26394d"><div class="muted text-xs">Available to trade</div><div id="portfolioAvailable" class="text-lg font-bold mt-2">$0.00</div></div><div class="rounded-xl p-3" style="background:#0d1927;border:1px solid #26394d"><div class="muted text-xs">Estimated portfolio value</div><div id="portfolioEquity" class="text-lg font-bold mt-2">$0.00</div></div></div><div class="mt-4" style="height:210px"><canvas id="portfolioChart" aria-label="Portfolio value history chart"></canvas></div><div id="portfolioChartNote" class="muted text-xs mt-2">The chart begins updating when public prices are available.</div><div class="mt-5 pt-4 border-t border-slate-700 flex flex-wrap gap-3"><button type="button" class="btn" data-goto="trade">View open positions & trading history →</button><button type="button" class="btn" data-goto="funding">Funding requests</button></div></div>
+<div id="welcomeGiftCard" class="panel p-5 md:p-6 overflow-hidden relative" style="background:linear-gradient(110deg,#142d3c,#17243a 55%,#302b44);border-color:#38566b">
+<div class="absolute -right-5 -top-8 w-40 h-40 rounded-full opacity-20" style="background:radial-gradient(circle,#75f0ca,transparent 68%)"></div>
+<div class="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-start gap-4"><div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl" style="background:#24483f;color:#8af0ce">✦</div><div><div class="eyebrow mb-2" style="color:#9debd3" data-i18n="welcomeGift">A WELCOME GIFT FOR YOU</div><h2 id="welcomeGiftTitle" class="text-xl font-bold">Welcome Gift</h2><p id="welcomeGiftTerms" class="muted text-sm mt-2 max-w-2xl">A welcome gift to help you explore the platform.</p></div></div>
+<div class="flex items-center gap-4"><div><div class="muted text-xs" data-i18n="welcomeCredit">Welcome credit</div><div id="welcomeGiftValue" class="text-2xl font-bold mt-1 green">$250.00</div></div><button class="btn btn-primary" data-goto="trade" data-i18n="exploreTrading">Explore trading</button><button class="btn" data-goto="funding" data-i18n="topUp">Top up</button></div>
+</div></div>
+<div id="inboxNotificationCard" class="panel p-4 md:p-5 mb-5 hidden"><div class="flex items-start gap-3"><span class="inbox-dot mt-2"></span><div class="flex-1 min-w-0"><div class="eyebrow mb-1" style="color:#e8c77d">INBOX NOTIFICATION</div><h3 id="inboxNotificationTitle" class="font-bold">A new message is waiting</h3><p id="inboxNotificationText" class="muted text-sm mt-1 break-words"></p><p id="inboxNotificationTime" class="muted text-xs mt-2"></p></div><button type="button" class="btn" data-goto="messages">Read message →</button></div></div>
+<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-4 grid2">
+<div class="panel p-5"><div class="flex justify-between items-start gap-3"><div><h2 class="font-bold text-lg">Market pulse</h2><p class="muted text-xs mt-1">Selected assets · live public prices when available</p></div><button class="btn" id="refreshPrices">↻ Refresh</button></div><div id="assetList" class="mt-5 space-y-1"><div class="muted text-sm py-8 text-center">Loading market prices…</div></div></div>
+<div class="panel p-5"><div class="flex justify-between items-start"><div><h2 class="font-bold text-lg">AI strategy brief</h2><p class="muted text-xs mt-1">Transparent market observations</p></div><span class="pill">ASSISTED</span></div><div class="mt-5 space-y-4"><div class="rounded-xl p-4 bg-[#0b1927] border border-[#23394b]"><div class="flex items-center gap-2"><span class="green">●</span><span class="text-sm font-semibold">Market context</span></div><p id="brief" class="muted text-sm leading-relaxed mt-2">Waiting for price data. The strategy brief will summarize observed price changes, not promise returns.</p></div><div class="flex gap-3"><button class="btn btn-primary flex-1" data-goto="trade">Open strategy lab</button><button class="btn flex-1" data-goto="markets">Explore markets</button></div></div></div>
+</div>
+<div class="panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div><h2 class="font-bold text-lg">Recent activity</h2><p class="muted text-xs mt-1">A transparent record of your activity</p></div><button class="btn" data-goto="history">View all</button></div><div id="recentActivity" class="muted text-sm">No activity yet.</div></div>
+</section>
+<section id="page-markets" class="tabpage space-y-5 customer-only"><div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 grid2"><div class="panel p-5"><div class="flex flex-wrap justify-between gap-3"><div><h2 id="chartTitle" class="font-bold text-lg">Bitcoin · BTC</h2><div id="chartPrice" class="metric mt-2">—</div><div id="chartChange" class="muted text-xs mt-1">Public market data</div></div><select id="assetSelect" class="field max-w-44"><option value="bitcoin">Bitcoin (BTC)</option><option value="ethereum">Ethereum (ETH)</option><option value="solana">Solana (SOL)</option><option value="ripple">XRP</option><option value="binancecoin">BNB</option></select></div><div class="mt-5 h-[260px]"><canvas id="priceChart"></canvas></div><p class="muted text-xs mt-3">Chart is built from available public price snapshots; refresh to update. Not investment advice.</p></div><div class="panel p-5"><h2 class="font-bold text-lg">Watchlist</h2><p class="muted text-xs mt-1">Choose an asset to inspect</p><div id="watchlist" class="mt-4 space-y-1"></div></div></div></section>
+<section id="page-trade" class="tabpage space-y-5 customer-only"><div class="panel p-5 md:p-6"><div class="flex flex-wrap justify-between gap-3"><div><div class="eyebrow mb-2">STRATEGY WORKSPACE</div><h2 class="text-xl font-bold">Trading workspace</h2><p class="muted text-sm mt-2 max-w-2xl">Review current public prices, place tracked positions, and monitor your portfolio. Orders are recorded on this platform and are not sent to an external exchange.</p></div><span class="pill">TRADE & PORTFOLIO</span></div><div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-7 grid2"><div><label class="muted text-xs block mb-2">Asset</label><select id="tradeAsset" class="field"><option value="bitcoin">Bitcoin (BTC)</option><option value="ethereum">Ethereum (ETH)</option><option value="solana">Solana (SOL)</option><option value="ripple">XRP</option><option value="binancecoin">BNB</option></select></div><div><label class="muted text-xs block mb-2">Order direction</label><select id="tradeSide" class="field"><option value="buy">Buy / Long</option><option value="sell">Sell / Short</option></select></div><div><label class="muted text-xs block mb-2">Order size (USD)</label><input id="tradeAmount" type="number" min="1" step="1" value="25" class="field"></div><div><label class="muted text-xs block mb-2">Risk limit per trade (%)</label><input id="riskLimit" type="number" min="0.1" max="5" step="0.1" value="1" class="field"></div></div><div class="rounded-xl bg-[#0a1725] border border-[#263b50] p-4 mt-5"><div class="eyebrow">MARKET SNAPSHOT</div><div id="tradeSnapshot" class="text-sm mt-2">Loading current market data…</div><div id="riskText" class="muted text-xs mt-2">Risk is a planning limit, not a guarantee against loss.</div></div><div class="flex flex-wrap gap-3 mt-5"><button id="analyzeBtn" class="btn">Generate market summary</button><button id="placeOrder" class="btn btn-primary">Place order</button></div><div id="analysisOutput" class="hidden rounded-xl p-4 mt-4 border border-[#2b4c5c] bg-[#102b36] text-sm leading-relaxed"></div></div><div class="panel p-5 position-history-panel"><div class="flex flex-wrap items-start justify-between gap-3"><div><div class="eyebrow mb-1">YOUR POSITIONS</div><h3 class="font-bold text-lg">Trading history</h3><p class="muted text-xs mt-1">Open positions recalculate from the latest public market quote. Closed positions keep their recorded P/L.</p></div><span class="live-market-pill"><i></i> LIVE MARKET</span></div><div class="market-update-note"><span class="market-pulse"></span><span>Public prices refresh about every 15 seconds when the market feed is available.</span><span id="positionUpdatedAt">Waiting for quote…</span></div><div id="earningsSummary" class="earnings-summary mt-5"><div class="earnings-summary-head"><div><div class="eyebrow">LIVE PORTFOLIO</div><h4 class="font-bold text-base mt-1">Your balance &amp; earnings</h4></div><button type="button" class="btn btn-primary" data-earnings-jump>＄ My earnings</button></div><div class="earnings-grid"><div class="earnings-tile earnings-closed"><span>Realized profit / loss</span><strong id="realizedEarnings">$0.00</strong><small>Net result from closed trades</small></div><div class="earnings-tile earnings-open"><span>Live open-trade P/L</span><strong id="openEarnings">$0.00</strong><small>Estimated change using the latest market quote</small></div><div class="earnings-tile earnings-total"><span>Total profit / loss</span><strong id="totalEarnings">$0.00</strong><small>Closed-trade result plus current open-trade estimate</small></div></div><div class="earnings-footnote">Open-trade profit/loss is an estimate and can rise or fall with market prices. Only verified, settled funds can be withdrawn. This dashboard currently tracks orders internally; it does not send orders to an external exchange.</div></div><div id="tradeHistory" class="mt-4 muted text-sm">No orders yet.</div></div></section>
+<section id="page-funding" class="tabpage space-y-5 customer-only">
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+  <div class="panel p-5 md:p-6" style="border-top:3px solid #fbbf24;background:linear-gradient(145deg,#292116,#171a27)">
+    <div class="eyebrow" style="color:#ffd166">ACCOUNT FUNDING</div><h2 class="font-bold text-xl mt-2">Add funds</h2>
+    <p class="muted text-sm mt-2">Submit a funding request for review. Once an administrator verifies receipt and approves it, the approved amount becomes available in your platform trading balance. A request by itself does not add funds.</p>
+    <form id="topupForm" class="mt-5 space-y-4"><div><label class="muted text-xs block mb-2">Amount (USD)</label><input id="topupAmount" class="field" type="number" min="1" step=".01" placeholder="250.00" required></div><div><label class="muted text-xs block mb-2">Payment reference / note (optional)</label><input id="topupNote" class="field" maxlength="140" placeholder="Payment reference or note"></div><button class="btn btn-primary w-full" type="submit">＋ Request a top-up</button></form>
+  </div>
+  <div class="panel p-5 md:p-6" style="border-top:3px solid #fb7185;background:linear-gradient(145deg,#301d2a,#171a27)">
+    <div class="eyebrow" style="color:#fda4af">WITHDRAWAL CENTER</div><h2 class="font-bold text-xl mt-2">Withdraw to bank</h2>
+    <p class="muted text-sm mt-2">Choose your destination bank and enter your details. Your bank details stay private to your account and authorized administrators.</p>
+    <form id="withdrawForm" class="mt-5 space-y-4">
+      <div><label class="muted text-xs block mb-2">Withdrawal amount (USD)</label><input id="withdrawAmount" class="field" type="number" min="0.01" step=".01" placeholder="0.00" required></div>
+      <div><label class="muted text-xs block mb-2">Bank country</label><select id="withdrawCountry" class="field"><option value="Nigeria">🇳🇬 Nigeria</option><option value="Mexico">🇲🇽 Mexico</option><option value="United States">🇺🇸 United States</option><option value="United Kingdom">🇬🇧 United Kingdom</option><option value="Other">🌐 Other country</option></select></div>
+      <div><label class="muted text-xs block mb-2">Select bank</label><select id="withdrawBank" class="field" required><option value="">Choose your bank</option><option>Access Bank</option><option>First Bank of Nigeria</option><option>GTBank</option><option>Moniepoint</option><option>OPay</option><option>Palmpay</option><option>Stanbic IBTC</option><option>Stanbic IBTC</option><option>Sterling Bank</option><option>UBA</option><option>Union Bank</option><option>Wema Bank</option><option>Zenith Bank</option></select></div>
+      <div><label class="muted text-xs block mb-2">Account holder name</label><input id="withdrawHolder" class="field" autocomplete="name" maxlength="100" placeholder="Name on bank account" required></div>
+      <div><label class="muted text-xs block mb-2">Account number</label><input id="withdrawAccount" class="field" inputmode="numeric" autocomplete="off" maxlength="24" placeholder="Enter bank account number" required></div>
+      <div id="withdrawBankPreview" class="rounded-2xl p-4" style="background:linear-gradient(120deg,#2d1c2d,#18283b);border:1px solid #75485e"><div class="eyebrow" style="color:#f9a8d4">SELECTED DESTINATION</div><div id="withdrawPreviewBank" class="font-bold mt-2">Choose your bank</div><div id="withdrawPreviewCountry" class="muted text-xs mt-1">🇳🇬 Nigeria</div><div id="withdrawPreviewHolder" class="muted text-sm mt-3">Account holder will appear here</div><div id="withdrawPreviewAccount" class="font-semibold mt-1 tracking-wider">•••• ••••</div></div>
+      <button class="btn w-full" style="background:linear-gradient(110deg,#fb7185,#c084fc,#60a5fa);color:white;border:0" type="submit">Review withdrawal request →</button>
+      <p class="muted text-xs">No bank transfer is sent from this page. Real withdrawals require verified cash funds and a connected, tested payment provider.</p>
+    </form>
+    <div id="withdrawResult" class="hidden rounded-xl p-4 mt-4" role="status" aria-live="polite"></div>
+  </div>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+  <div class="panel p-5" style="border-top:3px solid #a78bfa"><div class="eyebrow" style="color:#c4b5fd">TRADING PERFORMANCE</div><h2 class="font-bold text-lg mt-2">Trading results</h2><p class="muted text-xs mt-1">Closed-trade results are recorded separately from trading funds and cannot be reused to open another trade.</p><div class="grid grid-cols-2 gap-3 mt-4"><div class="rounded-xl p-4" style="background:#252039"><div class="muted text-xs">Open + realized trading P/L</div><div id="withdrawPracticePnl" class="metric mt-2" style="color:#c4b5fd">$0.00</div></div><div class="rounded-xl p-4" style="background:#35202e"><div class="muted text-xs">Earnings held for withdrawal request</div><div id="withdrawableEarningsDisplay" class="metric mt-2" style="color:#6ee7b7">$0.00</div><div class="muted text-xs mt-1">Not available for trading; no cash payout is connected</div></div></div></div>
+  <div class="panel p-5" style="border-top:3px solid #60a5fa"><div class="flex justify-between gap-3 items-start"><div><h2 class="font-bold text-lg">Withdrawal history</h2><p class="muted text-xs mt-1">Private records for your account.</p></div><span id="withdrawCount" class="pill">0 requests</span></div><div id="withdrawHistory" class="mt-4 muted text-sm">No withdrawal requests yet.</div></div>
+</div>
+<div class="panel p-5" style="border-top:3px solid #34d399"><div class="flex justify-between gap-3"><div><h2 class="font-bold text-lg">Top-up history</h2><p class="muted text-xs mt-1">A review status is not proof of a completed bank transfer.</p></div><span class="pill" id="topupCount">0 requests</span></div><div id="topupHistory" class="mt-4">No requests yet.</div></div>
+</section>
+<section id="page-messages" class="tabpage"><div class="panel overflow-hidden"><div class="p-5 border-b border-[#233246] flex justify-between items-center"><div><h2 class="font-bold text-lg">Secure support inbox</h2><p class="muted text-xs mt-1">Private customer/admin inbox with secure cloud messages and photo/audio attachments.</p></div><span class="pill">PRIVATE INBOX</span></div><div class="grid grid-cols-1 md:grid-cols-[220px_1fr] min-h-[470px]"><div id="conversationList" class="border-b md:border-b-0 md:border-r border-[#233246] p-3"><button class="btn w-full" id="newConversation">＋ New conversation</button><div id="conversations" class="mt-3 muted text-sm">No conversations yet.</div></div><div class="flex flex-col min-w-0"><div id="chatHeader" class="p-4 border-b border-[#233246] font-semibold text-sm">Select or start a conversation</div><div id="chatMessages" class="flex-1 p-4 space-y-3 min-h-[260px]"></div><form id="messageForm" class="p-3 border-t border-[#233246]"><div class="admin-only hidden mb-3 rounded-xl p-3" style="background:#1b2636;border:1px solid #3c4c61"><div class="font-semibold text-sm">Request a customer top-up</div><p class="muted text-xs mt-1">Send a clear request with the amount you specify. This sends a message only; it does not charge the customer or create a deposit.</p><div class="flex flex-wrap gap-2 mt-3"><input id="adminTopupRequestAmount" class="field" type="number" min="1" step=".01" placeholder="Amount (USD)" aria-label="Requested top-up amount"><button type="button" class="btn btn-primary" id="sendTopupRequest">Send top-up request</button></div></div><div class="flex gap-2 items-end"><textarea id="messageText" rows="2" class="field resize-y" placeholder="Write a message…" maxlength="3000"></textarea><label class="btn cursor-pointer">＋<input id="attachment" type="file" class="hidden" accept="image/*,audio/*"></label><button class="btn btn-primary" type="submit">Send</button></div><div id="attachmentName" class="muted text-xs mt-2"></div></form></div></div></div></section>
+<section id="page-history" class="tabpage customer-only space-y-5"><div id="accountLedger" class="panel p-5 md:p-6"><div class="flex flex-wrap items-start justify-between gap-3 mb-4"><div><div class="eyebrow" style="color:#67e8f9">BALANCE & TRANSACTION LEDGER</div><h2 class="text-xl font-bold mt-2">Money in and out</h2><p class="muted text-sm mt-2">Deposits, trading results and withdrawal requests in date order.</p></div><span class="pill" style="color:#67e8f9;border-color:#27667a">ACCOUNT RECORD</span></div><div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-5"><div class="rounded-xl p-3" style="background:#0b1724;border:1px solid #284357"><div class="muted text-xs">Approved deposits / top-ups</div><div id="ledgerDeposits" class="text-lg font-extrabold mt-2">$0.00</div><div class="muted text-xs mt-1">Verified or admin-recorded credits</div></div><div class="rounded-xl p-3" style="background:#0b1724;border:1px solid #284357"><div class="muted text-xs">Available trading balance</div><div id="ledgerBalance" class="text-lg font-extrabold mt-2">$0.00</div><div class="muted text-xs mt-1">Earnings are excluded from trade funds</div></div><div class="rounded-xl p-3" style="background:#0b1724;border:1px solid #284357"><div class="muted text-xs">Earnings held for withdrawal request</div><div id="ledgerEarnings" class="text-lg font-extrabold mt-2" style="color:#6ee7b7">$0.00</div><div class="muted text-xs mt-1">Not available for new trades</div></div><div class="rounded-xl p-3" style="background:#0b1724;border:1px solid #284357"><div class="muted text-xs">Open + realized trading P/L</div><div id="ledgerPnl" class="text-lg font-extrabold mt-2">$0.00</div><div class="muted text-xs mt-1">Recorded trading result</div></div></div><div id="accountLedgerRows"><div class="muted py-5 text-center">Your account records will appear here.</div></div><p class="muted text-xs leading-relaxed mt-4">A top-up request is not a completed deposit until payment is independently verified. Trading results are recorded separately from deposited funds. Withdrawals remain pending until verified funds and a connected payout provider confirm payment.</p></div><div class="panel p-5 md:p-6"><div class="flex flex-wrap justify-between items-center gap-4 pb-4"><div class="activity-heading"><div class="activity-heading-icon">↗</div><div><div class="eyebrow mb-1">ACCOUNT CENTER</div><h2 class="activity-ledger-title font-bold">Account activity</h2><p class="activity-ledger-subtitle mt-1">A clear timeline of your funding requests, trading records, and withdrawals. Open any item to view its record.</p></div></div><button id="exportActivity" class="btn">↓ Export CSV</button></div><div id="allActivity" class="mt-1">No activity recorded.</div></div></section>
+<section id="page-profile" class="tabpage space-y-5"><div class="profile-luxury-hero panel"><div class="profile-luxury-avatar" id="profileHeroAvatar">A</div><div class="profile-luxury-copy"><div class="eyebrow" id="profileHeroEyebrow">APEX · PERSONAL PROFILE</div><h2 id="profileHeroName">Your profile</h2><p id="profileHeroSub">Manage your account identity and preferences.</p><div class="profile-hero-tags"><span id="profileHeroRole">CUSTOMER ACCOUNT</span><span id="profileHeroCountry">COUNTRY NOT SET</span></div></div><span class="profile-hero-seal">✦</span></div><div class="panel p-6 md:p-8"><div class="eyebrow mb-2" data-i18n="accountSettings">ACCOUNT SETTINGS</div><h2 class="text-2xl font-bold" data-i18n="profileTitle">Your profile</h2><p class="muted mt-2" data-i18n="profileSub">Personalize your workspace with a photo and country.</p><div class="flex flex-col sm:flex-row gap-6 mt-6 items-start"><div class="flex flex-col items-center gap-3"><div id="profileAvatarPreview" class="w-28 h-28 rounded-full border-2 border-[#43e0b0] bg-[#183b4a] flex items-center justify-center text-3xl font-bold green overflow-hidden">A</div><input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp" class="field" style="max-width:250px"><span class="muted text-xs" data-i18n="photoHint">JPG, PNG or WebP · up to 5 MB</span></div><form id="profileForm" class="flex-1 w-full space-y-4"><div><label class="muted text-xs block mb-2" data-i18n="displayName">Display name</label><input id="profileDisplayName" class="field" maxlength="80" required></div><div><label class="muted text-xs block mb-2" data-i18n="country">Country</label><select id="profileCountry" class="field" required><option value="">Select country</option><option value="NG">🇳🇬 Nigeria</option><option value="MX">🇲🇽 Mexico</option><option value="US">🇺🇸 United States</option><option value="GB">🇬🇧 United Kingdom</option><option value="ES">🇪🇸 Spain</option><option value="CO">🇨🇴 Colombia</option><option value="AR">🇦🇷 Argentina</option><option value="BR">🇧🇷 Brazil</option><option value="CA">🇨🇦 Canada</option><option value="GH">🇬🇭 Ghana</option><option value="KE">🇰🇪 Kenya</option><option value="ZA">🇿🇦 South Africa</option><option value="IN">🇮🇳 India</option><option value="PH">🇵🇭 Philippines</option><option value="OTHER">🌐 Other</option></select></div><div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit" data-i18n="saveProfile">Save profile</button><button class="btn" id="enableNotifications" type="button" data-i18n="enableNotifications">Enable message notifications</button></div><p id="profileStatus" class="muted text-sm" aria-live="polite"></p></form></div></div></section>
+<section id="page-admin" class="tabpage space-y-5 admin-only hidden admin-console"><div class="admin-live-dashboard space-y-5">
+  <div class="admin-brand-banner panel">
+    <div class="admin-brand-row"><div class="admin-brand-mark" aria-label="AI Trading Bot logo"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="2" y="2" width="44" height="44" rx="13" fill="#172a36" stroke="#d6bb79"/><path d="M24 10v7M19 12h10" stroke="#d6bb79" stroke-width="2.5" stroke-linecap="round"/><rect x="11" y="18" width="26" height="19" rx="5" fill="#d6bb79"/><circle cx="19" cy="26" r="2" fill="#10202b"/><circle cx="29" cy="26" r="2" fill="#10202b"/><path d="M18 32h12" stroke="#10202b" stroke-width="2.5" stroke-linecap="round"/></svg></div><div class="admin-brand-copy"><strong>AI <span>TRADING BOT</span></strong><small>INTELLIGENT MARKETS · ADMINISTRATION</small></div><div class="admin-live-chip"><i></i> PRIVATE ADMIN</div></div>
+    <div class="admin-brand-hero"><div class="admin-monogram"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="3" y="3" width="58" height="58" rx="18" fill="#172a36" stroke="#d6bb79"/><path d="M32 12v9M26 15h12" stroke="#d6bb79" stroke-width="3" stroke-linecap="round"/><rect x="14" y="22" width="36" height="28" rx="7" fill="#d6bb79"/><circle cx="25" cy="33" r="3" fill="#10202b"/><circle cx="39" cy="33" r="3" fill="#10202b"/><path d="M24 42h16" stroke="#10202b" stroke-width="3" stroke-linecap="round"/></svg></div><div><div class="eyebrow">AI TRADING BOT · PRIVATE OPERATIONS</div><h3>AI TRADING BOT CONTROL CENTER</h3><p>Client operations · Market intelligence · Platform oversight</p></div><div class="admin-hero-status"><span class="admin-online-dot"></span><span><strong>CONTROL SYSTEMS</strong><small>MONITORING ACTIVE</small></span></div></div>
+    <div class="admin-brand-footer"><span><i></i> ADMIN SESSION ACTIVE</span><span>LIVE WORKSPACE OVERVIEW · <b id="adminLiveClock">--:--:--</b></span></div>
+  </div>
+  <div class="admin-live-grid">
+    <article class="admin-live-card aqua"><div class="admin-card-top"><span>Registered customers</span><span class="admin-card-icon">♙</span></div><div class="admin-card-value" id="adminLiveCustomers">0</div><div class="admin-card-foot"><span>Customer accounts</span><b>TOTAL</b></div><div class="admin-mini-label">LIVE METRICS · VISUAL ONLY</div><svg class="admin-sparkline" viewBox="0 0 260 52" preserveAspectRatio="none" aria-label="Animated customer activity"><path class="spark-track" d="M2 37 L258 37"/><path class="spark-path" d="M2 37 L44 37 L86 37 L128 37 L170 37 L202 37 L228 8 L258 37"/></svg></article>
+    <article class="admin-live-card gold"><div class="admin-card-top"><span>Pending requests</span><span class="admin-card-icon">⇄</span></div><div class="admin-card-value" id="adminLiveRequests">0</div><div class="admin-card-foot"><span>Awaiting review</span><b>QUEUE</b></div><div class="admin-mini-label">LIVE METRICS · VISUAL ONLY</div><svg class="admin-sparkline" viewBox="0 0 260 52" preserveAspectRatio="none" aria-label="Animated request activity"><path class="spark-track" d="M2 37 L258 37"/><path class="spark-path" d="M2 37 L44 37 L86 37 L128 37 L170 37 L202 37 L228 8 L258 37"/></svg></article>
+    <article class="admin-live-card violet"><div class="admin-card-top"><span>Market instruments</span><span class="admin-card-icon">◇</span></div><div class="admin-card-value" id="adminLiveMarkets">0</div><div class="admin-card-foot"><span>Public price feed</span><b>MARKETS</b></div><div class="admin-mini-label">LIVE METRICS · VISUAL ONLY</div><svg class="admin-sparkline" viewBox="0 0 260 52" preserveAspectRatio="none" aria-label="Animated market activity"><path class="spark-track" d="M2 37 L258 37"/><path class="spark-path" d="M2 37 L44 37 L86 37 L128 37 L170 37 L202 37 L228 8 L258 37"/></svg></article>
+    <article class="admin-live-card rose"><div class="admin-card-top"><span>Customer messages</span><span class="admin-card-icon">✉</span></div><div class="admin-card-value" id="adminLiveMessages">0</div><div class="admin-card-foot"><span>Messages in inbox</span><b>INBOX</b></div><div class="admin-mini-label">LIVE METRICS · VISUAL ONLY</div><svg class="admin-sparkline" viewBox="0 0 260 52" preserveAspectRatio="none" aria-label="Animated message activity"><path class="spark-track" d="M2 37 L258 37"/><path class="spark-path" d="M2 37 L44 37 L86 37 L128 37 L170 37 L202 37 L228 8 L258 37"/></svg></article>
+  </div>
+  <article class="admin-activity-panel panel">
+    <div class="admin-section-head"><div><div class="eyebrow">DYNAMIC ADMIN ANALYTICS</div><h3>Account activity</h3><p>Customer activity and funding requests · last 7 days</p></div><span class="admin-live-chip"><i></i> UPDATED</span></div>
+    <div class="admin-chart-legend"><span><i class="legend-aqua"></i> Account activity</span><span><i class="legend-rose"></i> Requests to review</span></div>
+    <div class="admin-chart-wrap"><svg id="adminActivityChart" viewBox="0 0 600 190" preserveAspectRatio="none" aria-label="Activity chart with animated trend lines"><defs><filter id="adminGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><path class="chart-grid" d="M0 30H600 M0 75H600 M0 120H600 M0 165H600"/><path id="adminActivityPath" class="admin-chart-line chart-aqua" d="M8 135 L90 135 L172 135 L254 135 L336 135 L418 135 L500 62 L592 135"/><path id="adminRequestPath" class="admin-chart-line chart-rose" d="M8 165 L90 165 L172 165 L254 165 L336 165 L418 165 L500 105 L592 165"/></svg></div>
+    <div class="admin-chart-footer"><span><b id="adminChartCustomers">0</b> customer accounts</span><span><b id="adminChartActivity">0</b> activity events</span><span><b id="adminChartPending">0</b> pending</span></div>
+  </article>
+  <article class="admin-conversations panel">
+    <div class="admin-section-head"><div><div class="eyebrow">SECURE MESSAGE CENTER</div><h3>Customer conversations</h3><p id="adminConversationSub">Recent messages from customer accounts</p></div><button class="btn btn-primary" id="adminViewMessages" type="button">View all messages ↗</button></div>
+    <div id="adminConversationList" class="admin-conversation-list"><div class="muted p-4">Loading customer conversations…</div></div>
+    <div class="admin-message-footer"><span class="admin-online-dot"></span><div><strong>Private admin workspace</strong><small>Replies are sent to the selected customer account.</small></div><button class="btn" id="adminFindCustomer" type="button">Find customer</button></div>
+  </article>
+</div>
+<div class="admin-security-note rounded-xl p-4 text-sm">Administrator controls are shown only to accounts assigned the admin role in Supabase. Database row-level security protects customer data and admin actions. Market data is live where available. Orders are recorded on this platform and are not routed to an exchange; deposits and withdrawals require verified payment processing.</div><div class="grid grid-cols-1 lg:grid-cols-2 gap-4 grid2"><div class="panel p-5"><div class="eyebrow mb-2">PLATFORM CONFIGURATION</div><h2 class="font-bold text-lg" data-i18n="giftSettings">Welcome gift settings</h2><p class="muted text-sm mt-2">Customize the welcome benefit shown to customers. Promotional platform credits are kept separate from deposits and cannot be withdrawn.</p><form id="giftForm" class="mt-5 space-y-4"><div><label class="muted text-xs block mb-2">Gift amount (USD)</label><input id="giftAmount" type="number" min="0" max="100000" step=".01" class="field"></div><div><label class="muted text-xs block mb-2">Gift title</label><input id="giftTitle" maxlength="80" class="field"></div><div><label class="muted text-xs block mb-2">Terms shown to customers</label><textarea id="giftTerms" rows="3" maxlength="500" class="field"></textarea></div><button class="btn btn-primary" type="submit">Save gift settings</button></form></div><div class="panel p-5"><div class="eyebrow mb-2">OPERATIONS QUEUE</div><h2 class="font-bold text-lg" data-i18n="reviewRequests">Review funding requests</h2><p class="muted text-sm mt-2">Reviewing a request changes its status only. It does not verify payment or move money.</p><div id="adminRequests" class="mt-4">No pending requests.</div></div></div><div class="panel p-5 md:p-6 global-settings-panel" style="border-top:3px solid #a78bfa"><div class="eyebrow mb-2" style="color:#c4b5fd">GLOBAL CUSTOMER EXPERIENCE</div><h2 class="font-bold text-xl">Customer dashboard settings</h2><p class="muted text-sm mt-2">Changes saved here are stored centrally and appear on every customer account, not just this admin browser.</p><form id="dashboardSettingsForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5"><div><label class="muted text-xs block mb-2">Platform name</label><input id="dashboardBrandName" class="field" maxlength="70" placeholder="AI Trading Bot"></div><div><label class="muted text-xs block mb-2">Customer announcement title</label><input id="dashboardAnnouncementTitle" class="field" maxlength="90" placeholder="Platform update"></div><div><label class="muted text-xs block mb-2">Customer overview headline</label><input id="dashboardOverviewTitle" class="field" maxlength="90" placeholder="Market overview"></div><div><label class="muted text-xs block mb-2">Customer overview subtitle</label><input id="dashboardOverviewSubtitle" class="field" maxlength="180" placeholder="Your market desk at a glance"></div><div class="md:col-span-2"><label class="muted text-xs block mb-2">Announcement message</label><textarea id="dashboardAnnouncementText" class="field" rows="3" maxlength="500" placeholder="Write an update visible on every customer dashboard"></textarea></div><div class="md:col-span-2 flex flex-wrap items-center gap-3"><label class="flex items-center gap-2 text-sm"><input id="dashboardAnnouncementEnabled" type="checkbox" checked> Show announcement to customers</label><button class="btn btn-primary" type="submit">Save and publish to all customers</button><span id="dashboardSettingsStatus" class="muted text-xs" role="status"></span></div></form><p class="muted text-xs mt-3">This controls shared text and the customer announcement. Layout/code changes are published through the same deployed website; they are not separate customer copies.</p></div><div class="panel p-5 admin-account-management"><div class="admin-section-head"><div><div class="eyebrow mb-2">SECURE ACCOUNT CONTROL</div><h2 class="font-bold text-xl" data-i18n="customerAccounts">Customer accounts</h2><p class="muted text-sm mt-2">Manage customer profiles, access permissions and account removal. Blocked accounts cannot enter the workspace.</p></div><span class="admin-live-chip"><i></i> ACCESS MANAGEMENT</span></div><div id="adminCustomers" class="admin-account-list mt-4">Loading customer accounts…</div></div><div class="panel p-5 md:p-6" style="border-top:3px solid #6ee7b7"><div class="eyebrow mb-2" style="color:#6ee7b7">ACCOUNT BALANCE CONTROLS</div><h2 class="font-bold text-lg">Credit a customer account</h2><p class="muted text-sm mt-2">Record the exact amount you intend to credit. Deposit/top-up credits increase trading principal; earnings credits are displayed separately and cannot be used to place another trade. This records a platform balance entry and does not send a bank transfer.</p><form id="adminCreditForm" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4"><div><label class="muted text-xs block mb-2" for="adminCreditCustomer">Customer</label><select id="adminCreditCustomer" class="field" required><option value="">Choose customer</option></select></div><div><label class="muted text-xs block mb-2" for="adminCreditType">Credit type</label><select id="adminCreditType" class="field" required><option value="earnings">Earnings credit · withdrawal only</option><option value="deposit">Deposit / top-up · trading balance</option></select></div><div><label class="muted text-xs block mb-2" for="adminCreditAmount">Exact amount (USD)</label><input id="adminCreditAmount" class="field" type="number" min="0.01" step="0.01" placeholder="100.00" required></div><div><label class="muted text-xs block mb-2" for="adminCreditNote">Note (optional)</label><input id="adminCreditNote" class="field" maxlength="500" placeholder="Reason or payment reference"></div><div class="md:col-span-2"><button class="btn btn-primary w-full md:w-auto" type="submit">＋ Credit customer account</button><p id="adminCreditStatus" class="muted text-xs mt-2" aria-live="polite"></p></div></form></div><div class="panel p-5" style="border-top:3px solid #fb7185"><div class="eyebrow mb-2" style="color:#fda4af">WITHDRAWAL REVIEW CENTER</div><h2 class="font-bold text-lg">Withdrawal requests</h2><p class="muted text-sm mt-2">Review each request, choose a status, and write or edit the message that the customer will see. Approval is not proof of a completed bank transfer.</p><div id="adminWithdrawals" class="mt-4">No withdrawal eligibility checks yet.</div></div><div class="panel p-5 admin-system-panel"><h2 class="font-bold text-lg">Workspace controls</h2><p class="muted text-sm mt-2">Customer and administrator workspaces are separated by the authenticated role. Only an authorized admin can change global settings and review requests.</p><div class="flex flex-wrap gap-3 mt-4"><button class="btn" id="switchCustomer">Customer workspace</button><button class="btn" id="switchAdmin">Admin workspace</button><button class="btn btn-danger" id="resetPreview">Reset local data</button></div></div></section>
+<footer class="muted text-[11px] mt-8 mb-5 flex flex-wrap gap-2 justify-between"><span>AI TRADING BOT · Private workspace</span><span>Public market data · Trading records stay within this platform</span></footer>
+</main></div><div id="activityReceiptModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="activityReceiptTitle"><div class="activity-receipt"><div class="activity-receipt-head"><div class="activity-receipt-seal">✓</div><div class="min-w-0 flex-1"><div class="eyebrow">ACCOUNT RECORD</div><h2 id="activityReceiptTitle" class="text-xl font-bold mt-1">Activity receipt</h2><p id="activityReceiptSubtitle" class="muted text-xs mt-1">Your saved account record</p></div><button id="activityReceiptClose" class="btn" type="button" aria-label="Close receipt">✕</button></div><div id="activityReceiptBody" class="mt-3"></div><div id="activityReceiptNote" class="activity-receipt-note"></div><div class="activity-receipt-actions"><button id="activityReceiptPrint" type="button" class="btn btn-primary">Print / Save PDF</button><button id="activityReceiptDone" type="button" class="btn">Done</button></div></div></div><div id="toast" class="toast hidden"></div><div id="tradeSuccessModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="tradeSuccessTitle"><div class="trade-success-card"><button id="tradeSuccessClose" class="gift-close" aria-label="Close">×</button><div class="gift-seal account-success-seal" style="margin-left:0">✓</div><div class="eyebrow mb-2">TRADE UPDATE</div><h2 id="tradeSuccessTitle" class="text-2xl font-extrabold">Trade placed successfully</h2><p id="tradeSuccessIntro" class="muted text-sm mt-2 leading-relaxed"></p><div class="gift-rule"></div><div class="grid grid-cols-2 gap-3"><div class="rounded-xl p-3" style="background:#0b1722;border:1px solid #2d443c"><div id="tradeSuccessAmountLabel" class="muted text-xs">Position size</div><div id="tradeSuccessAmount" class="text-lg font-bold mt-2">$0.00</div></div><div class="rounded-xl p-3" style="background:#0b1722;border:1px solid #2d443c"><div id="tradeSuccessPnlLabel" class="muted text-xs">Current estimated P/L</div><div id="tradeSuccessPnl" class="text-lg font-bold mt-2">$0.00</div></div></div><p id="tradeSuccessDisclosure" class="muted text-xs leading-relaxed mt-4">Platform trade record only; no external exchange order was sent.</p><button id="tradeSuccessDone" type="button" class="btn btn-primary w-full mt-5">Continue to portfolio</button></div></div><div id="welcomeGiftModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="giftModalTitle"><div class="gift-receipt"><div id="accountFlowerLayer" aria-hidden="true"></div><button id="giftModalClose" class="gift-close" aria-label="Close">×</button><div class="gift-seal">✦</div><div class="eyebrow" style="color:#a6f1db">A LITTLE SOMETHING FOR YOU</div><h2 id="giftModalTitle">Welcome to AI Trading Bot</h2><p id="giftModalIntro">Your private markets workspace starts here.</p><div class="gift-rule"></div><div id="giftModalGiftTitle" class="gift-item-title">Welcome Gift</div><div id="giftModalAmount" class="gift-amount">$250.00</div><p id="giftModalTerms" class="gift-terms"></p><div class="gift-rule"></div><button id="giftModalContinue" class="btn btn-primary" type="button">Enter your workspace</button><p class="gift-small">AI TRADING BOT · WELCOME RECEIPT</p></div></div>
+<script>
+const $=id=>document.getElementById(id);
+const STORE='ai-trading-bot-v1';
+const defaults={gift:{amount:250,title:'Welcome Gift',terms:'Promotional platform credit. It is separate from deposited funds and cannot be withdrawn.'},approved:0,realizedPnl:0,requests:[],withdrawals:[],credits:[],orders:[],activity:[],conversations:[],messages:[],activeConversation:null,role:'customer',prices:{},history:{}};
+let state=load(), selectedAsset='bitcoin', chart;
+function load(){try{const saved=JSON.parse(localStorage.getItem(STORE)||'{}');const s={...structuredClone(defaults),...saved};return s}catch{return structuredClone(defaults)}}
+function save(){localStorage.setItem(STORE,JSON.stringify(state));renderAll()}
+function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(Number(n)||0)}
+function toast(msg){$('toast').textContent=msg;$('toast').classList.remove('hidden');setTimeout(()=>$('toast').classList.add('hidden'),3200)}
+function renderInboxNotice(){const card=$('inboxNotificationCard');if(!card)return;const readKey='apex-inbox-last-read-'+(window.apexCurrentUserId||'guest');const lastRead=Number(localStorage.getItem(readKey)||0);const incoming=(state.messages||[]).filter(m=>(window.apexCurrentRole==='admin'?m.sender==='customer':m.sender==='admin')&&new Date(m.time||0).getTime()>lastRead).sort((a,b)=>new Date(b.time)-new Date(a.time));const badge=$('unreadCount');if(badge){badge.textContent=String(incoming.length);badge.classList.toggle('hidden',incoming.length===0)}card.classList.toggle('hidden',incoming.length===0||window.apexCurrentRole==='admin');if(incoming.length){const m=incoming[0];$('inboxNotificationTitle').textContent='You have a new message from support';$('inboxNotificationText').textContent=m.text||(m.name?'Attachment: '+m.name:'A new attachment is waiting in your inbox.');$('inboxNotificationTime').textContent=new Date(m.time).toLocaleString()}}
+window.apexShowTradeSuccess=function(info){const modal=$('tradeSuccessModal');if(!modal)return;const closed=!!info.closed,pnl=Number(info.pnl||0);$('tradeSuccessTitle').textContent=closed?'Position closed successfully':'Trade placed successfully';$('tradeSuccessIntro').textContent=info.intro||(closed?'Your position has been closed and its result has been recorded.':'Your position has been recorded and added to your portfolio.');$('tradeSuccessAmountLabel').textContent='Position size';$('tradeSuccessAmount').textContent=money(Number(info.amount||0));$('tradeSuccessPnlLabel').textContent=closed?(pnl>0?'Realized profit':pnl<0?'Realized loss':'Realized result'):'Current estimated P/L';$('tradeSuccessPnl').textContent=(pnl>0?'+':pnl<0?'−':'')+formatEarnings(Math.abs(pnl));$('tradeSuccessPnl').style.color=pnl>0?'#79e5b5':pnl<0?'#ff9da8':'#c4b5fd';$('tradeSuccessDisclosure').textContent=closed?'The position capital is released back to your available platform balance, together with the recorded gain or loss. The result is calculated from public market prices; no external exchange order or bank payment was sent.':'This position is tracked using public market prices. It is not sent to an external exchange.';const close=()=>modal.classList.add('hidden');$('tradeSuccessClose').onclick=close;$('tradeSuccessDone').onclick=()=>{close();if(typeof go==='function')go('trade')};modal.classList.remove('hidden')};
+$('tradeSuccessModal')?.addEventListener('click',e=>{if(e.target===$('tradeSuccessModal'))$('tradeSuccessModal').classList.add('hidden')});
+document.querySelectorAll('[data-earnings-jump]').forEach(el=>el.addEventListener('click',()=>setTimeout(()=>document.getElementById('earningsSummary')?.scrollIntoView({behavior:'smooth',block:'center'}),160)));
+function celebrateAccountCreation(){const layer=$('accountFlowerLayer');if(!layer)return;layer.innerHTML='';const flowers=['🌸','🌼','🌺','🌷','✿','❀'];for(let i=0;i<30;i++){const f=document.createElement('span');f.className='account-flower';f.textContent=flowers[i%flowers.length];f.style.left=(Math.random()*96)+'%';f.style.setProperty('--drift',((Math.random()*150)-75)+'px');f.style.animationDelay=(Math.random()*1.1)+'s';f.style.fontSize=(18+Math.random()*18)+'px';layer.appendChild(f)}setTimeout(()=>{if(layer.isConnected)layer.innerHTML=''},5200)}
+window.celebrateAccountCreation=celebrateAccountCreation
 
-        function executeTrade() {
-            alert(translations[lang].alertTrade);
-        }
+function log(type,detail,amount=''){state.activity.unshift({id:crypto.randomUUID(),time:new Date().toISOString(),type,detail,amount});state.activity=state.activity.slice(0,300)}
+const assets=[['bitcoin','BTC','Bitcoin','₿'],['ethereum','ETH','Ethereum','◆'],['solana','SOL','Solana','◎'],['ripple','XRP','XRP','✕'],['binancecoin','BNB','BNB','◆']];
+function price(id){return Number(state.prices[id]?.usd)||0}
+function fmtPrice(n){return n?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:n<1?5:2}).format(n):'Unavailable'}
+async function fetchPrices(){ $('feedStatus').textContent='Connecting';$('priceStatus').textContent='Loading';try{const ids=assets.map(a=>a[0]).join(',');const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+ids+'&vs_currencies=usd&include_24hr_change=true',{cache:'no-store'});if(!r.ok)throw Error('Market provider unavailable');const data=await r.json();const previousPrices={...state.prices};state.prices={...state.prices,...data};for(const a of assets){const p=price(a[0]);if(p){state.history[a[0]]=state.history[a[0]]||[];state.history[a[0]].push({t:Date.now(),p});state.history[a[0]]=state.history[a[0]].slice(-36)}}state.updatedAt=new Date().toISOString();localStorage.setItem(STORE,JSON.stringify(state));$('feedStatus').textContent='Connected';$('priceStatus').textContent='Live feed';$('updatedAt').textContent=new Date().toLocaleTimeString();renderAssets();document.querySelectorAll('[data-asset]').forEach(el=>{const id=el.dataset.asset,old=Number(previousPrices[id]?.usd)||0,now=price(id);el.classList.remove('price-tick-up','price-tick-down');if(old&&now!==old){void el.offsetWidth;el.classList.add(now>old?'price-tick-up':'price-tick-down')}});renderChart();renderTradeSnapshot();renderBalance();renderPortfolioPerformance();renderInboxNotice();renderOrders();$('brief').textContent=makeBrief();}catch(e){$('feedStatus').textContent='Unavailable';$('priceStatus').textContent='Unavailable';$('updatedAt').textContent='No recent update';renderAssets();$('brief').textContent='Market data could not be fetched. Check connectivity or refresh later; no price is invented.';toast('Market provider unavailable. No prices were fabricated.')} }
+function makeBrief(){const vals=assets.map(a=>({a,p:price(a[0]),c:Number(state.prices[a[0]]?.usd_24h_change)})).filter(x=>x.p);if(!vals.length)return 'Waiting for public price data. No market claim is available.';const best=[...vals].sort((a,b)=>(b.c||0)-(a.c||0))[0],worst=[...vals].sort((a,b)=>(a.c||0)-(b.c||0))[0];return 'Among the assets currently available, '+best.a[1]+' has the strongest reported 24-hour move ('+(Number.isFinite(best.c)?best.c.toFixed(2)+'%':'change unavailable')+'), while '+worst.a[1]+' has the weakest ('+(Number.isFinite(worst.c)?worst.c.toFixed(2)+'%':'change unavailable')+'). This is a descriptive snapshot, not a prediction or trading guarantee.'}
+function renderAssets(){const html=assets.map(a=>{const p=price(a[0]),c=Number(state.prices[a[0]]?.usd_24h_change);return '<button class="asset-row asset-'+a[0]+' w-full flex items-center gap-3 p-3 rounded-xl text-left" data-asset="'+a[0]+'"><div class="asset-icon">'+a[3]+'</div><div class="flex-1 min-w-0"><div class="text-sm font-semibold">'+a[2]+'</div><div class="muted text-xs">'+a[1]+'</div></div><div class="text-right"><div class="text-sm font-bold asset-price">'+fmtPrice(p)+'</div><div class="text-xs '+(c>=0?'text-emerald-300':'text-rose-300')+'">'+(Number.isFinite(c)?(c>0?'+':'')+c.toFixed(2)+'%':'Change unavailable')+'</div></div></button>'}).join('');$('assetList').innerHTML=html;$('watchlist').innerHTML=html;document.querySelectorAll('[data-asset]').forEach(b=>b.addEventListener('click',()=>{selectedAsset=b.dataset.asset;$('assetSelect').value=selectedAsset;renderChart()}))}
+function renderChart(){if(!$('priceChart'))return;const a=assets.find(a=>a[0]===selectedAsset)||assets[0];$('chartTitle').textContent=a[2]+' · '+a[1];$('chartPrice').textContent=fmtPrice(price(a[0]));const c=Number(state.prices[a[0]]?.usd_24h_change);$('chartChange').textContent=Number.isFinite(c)?(c>=0?'+':'')+c.toFixed(2)+'% over 24 hours · Public market feed':'24-hour change unavailable';const points=state.history[a[0]]||[];if(chart)chart.destroy();chart=new Chart($('priceChart'),{type:'line',data:{labels:points.map(x=>new Date(x.t).toLocaleTimeString()),datasets:[{data:points.map(x=>x.p),borderColor:({'bitcoin':'#f5b942','ethereum':'#a78bfa','solana':'#fb7185','ripple':'#60a5fa','binancecoin':'#facc15'}[a[0]]||'#42e3b1'),backgroundColor:({'bitcoin':'rgba(245,185,66,.13)','ethereum':'rgba(167,139,250,.13)','solana':'rgba(251,113,133,.13)','ripple':'rgba(96,165,250,.13)','binancecoin':'rgba(250,204,21,.13)'}[a[0]]||'rgba(66,227,177,.08)'),fill:true,tension:.28,pointRadius:2,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a1b7',maxTicksLimit:5},grid:{color:'#233246'}},y:{ticks:{color:'#91a1b7'},grid:{color:'#233246'}}}}})}
+function renderTradeSnapshot(){const a=assets.find(a=>a[0]===$('tradeAsset')?.value)||assets[0];$('tradeSnapshot').textContent=a[2]+' ('+a[1]+') · Current public price: '+fmtPrice(price(a[0]))+'. Orders use this market snapshot and are recorded within this platform.'}
+function openOrders(){return state.orders.filter(o=>o.status==='Open')}
+function orderPnl(o){const p=price(o.asset);if(!p||!o.price)return 0;const units=o.amount/o.price;return (o.side==='buy'?p-o.price:o.price-p)*units}
+function totalPnl(){return Number(state.realizedPnl||0)+openOrders().reduce((sum,o)=>sum+orderPnl(o),0)}
+function approvedFunding(){return (state.requests||[]).filter(r=>String(r.status||'').toLowerCase()==='approved').reduce((sum,r)=>sum+Number(r.amount||0),0)+(state.credits||[]).filter(c=>c.credit_type==='deposit').reduce((sum,c)=>sum+Number(c.amount||0),0)}
+function earningsCredits(){return (state.credits||[]).filter(c=>c.credit_type==='earnings').reduce((sum,c)=>sum+Number(c.amount||0),0)}
+function realizedPracticeEarnings(){return Number(state.realizedPnl||0)+earningsCredits()}
+function reservedWithdrawals(){return (state.withdrawals||[]).filter(w=>['pending','approved','paid'].includes(String(w.status||'').toLowerCase())).reduce((sum,w)=>sum+Number(w.amount||0),0)}
+function withdrawableEarnings(){return Math.max(0,Number((realizedPracticeEarnings()-reservedWithdrawals()).toFixed(2)))}
+function totalBalance(){const closedLosses=(state.orders||[]).filter(o=>o.status==='Closed').reduce((sum,o)=>sum+Math.min(0,Number(o.realizedPnl)||0),0);return Math.max(0,Number((approvedFunding()-openOrders().reduce((sum,o)=>sum+Number(o.amount||0),0)+closedLosses).toFixed(2)))}
+function totalEquity(){return Number((approvedFunding()+totalPnl()+earningsCredits()).toFixed(2))}
+function renderPortfolioPerformance(){const available=$('portfolioAvailable'),equity=$('portfolioEquity'),note=$('portfolioChartNote');if(available)available.textContent=money(totalBalance());if(equity)equity.textContent=money(totalEquity());if(!state.portfolioHistory)state.portfolioHistory=[];const now=Date.now();const last=state.portfolioHistory[state.portfolioHistory.length-1];if(!last||now-last.t>25000){state.portfolioHistory.push({t:now,v:totalEquity(),p:totalPnl()});state.portfolioHistory=state.portfolioHistory.slice(-48);try{localStorage.setItem(STORE,JSON.stringify(state))}catch{}}const canvas=$('portfolioChart');if(!canvas||typeof Chart==='undefined')return;const labels=state.portfolioHistory.map(x=>new Date(x.t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}));const vals=state.portfolioHistory.map(x=>Number(x.v)||0);if(window.apexPortfolioChart){window.apexPortfolioChart.data.labels=labels;window.apexPortfolioChart.data.datasets[0].data=vals;window.apexPortfolioChart.update('none')}else{window.apexPortfolioChart=new Chart(canvas,{type:'line',data:{labels,datasets:[{label:'Estimated portfolio value (USD)',data:vals,borderColor:'#c4b5fd',backgroundColor:'rgba(167,139,250,.12)',fill:true,tension:.32,pointRadius:2,pointHoverRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#aab8ca',boxWidth:10}},tooltip:{callbacks:{label:c=>' '+money(c.parsed.y)}}},scales:{x:{ticks:{color:'#7e91a8',maxTicksLimit:5},grid:{color:'rgba(148,163,184,.08)'}},y:{ticks:{color:'#7e91a8',callback:v=>money(v)},grid:{color:'rgba(148,163,184,.1)'}}}}})}if(note)note.textContent=state.portfolioHistory.length>1?'Updates when public market prices refresh. Performance is calculated from tracked positions and approved account funding.':'Waiting for more price updates to draw the portfolio trend.'}
+function renderBalance(){$('balance').textContent=money(totalBalance());const pnl=totalPnl();$('pnl').textContent=(pnl>0?'+':pnl<0?'−':'')+money(Math.abs(pnl));$('pnl').className='metric mt-4 '+(pnl>=0?'green':'text-rose-300');$('positions').textContent=String(openOrders().length);$('giftAmount').value=state.gift.amount;$('giftTitle').value=state.gift.title;$('giftTerms').value=state.gift.terms;if($('welcomeGiftTitle'))$('welcomeGiftTitle').textContent=state.gift.title;if($('welcomeGiftTerms'))$('welcomeGiftTerms').textContent=state.gift.terms;if($('welcomeGiftValue'))$('welcomeGiftValue').textContent=money(state.gift.amount)}
+function activityLabel(x){const t=String(x.type||'Account activity');if(/simulated order placed|trade placed/i.test(t))return 'Trade placed';if(/position closed/i.test(t))return 'Position closed';if(/top-up requested/i.test(t))return 'Funding request submitted';if(/top-up request approved/i.test(t)||/top-up request rejected/i.test(t))return 'Funding request reviewed';return t}
+function activityIcon(x){const t=String(x.type||'').toLowerCase();if(t.includes('top-up')||t.includes('funding'))return '＋';if(t.includes('withdraw'))return '↗';if(t.includes('message'))return '✉';if(t.includes('position')||t.includes('order')||t.includes('trade'))return '⌁';if(t.includes('profile'))return '◉';return '✓'}
+function renderActivity(){const rows=state.activity.slice(0,5);$('recentActivity').innerHTML=rows.length?rows.map(activityRow).join(''):'<div class="muted py-5 text-center">Your account activity will appear here.</div>';$('allActivity').innerHTML=state.activity.length?state.activity.map(activityRow).join(''):'<div class="muted py-6 text-center">No activity recorded yet.</div>'}
+function activityRow(x){const title=activityLabel(x);const date=new Date(x.time);const dateText=Number.isNaN(date.getTime())?'Date unavailable':date.toLocaleString();return '<button type="button" class="activity-record" data-activity-id="'+esc(x.id||'')+'" aria-label="Open record: '+esc(title)+'"><span class="activity-record-icon">'+activityIcon(x)+'</span><span class="activity-record-main"><span class="activity-record-title block">'+esc(title)+'</span><span class="activity-record-detail block">'+esc(x.detail||'Account event recorded')+'</span><span class="activity-record-date block">'+esc(dateText)+'</span></span><span class="activity-record-card"><span>↗</span> View record</span></button>'}
+function renderFunding(){const rows=state.requests;$('topupCount').textContent=rows.length+' requests';$('topupHistory').innerHTML=rows.length?rows.slice().reverse().map(r=>'<div class="table-row py-4 flex flex-wrap gap-3 items-center"><div class="flex-1"><div class="font-semibold">'+money(r.amount)+'</div><div class="muted text-xs mt-1">'+esc(r.note||'No note')+' · '+new Date(r.time).toLocaleString()+'</div></div><span class="pill" style="'+(r.status==='Approved'?'background:#153b33;color:#6fe4b9':r.status==='Rejected'?'background:#43242b;color:#ffb7c2':'')+'">'+r.status+'</span></div>').join(''):'<div class="muted py-8 text-center">No top-up requests submitted.</div>';$('adminRequests').innerHTML=rows.filter(r=>r.status==='Pending').length?rows.filter(r=>r.status==='Pending').map(r=>'<div class="table-row py-4"><div class="flex justify-between gap-3"><div><div class="font-semibold">'+money(r.amount)+'</div><div class="muted text-xs mt-1">'+esc(r.note||'No note')+'</div></div><span class="pill">PENDING</span></div><div class="flex gap-2 mt-3"><button class="btn btn-primary" data-approve="'+r.id+'">Approve &amp; credit balance</button><button class="btn btn-danger" data-reject="'+r.id+'">Reject</button></div></div>').join(''):'<div class="muted py-5">No pending requests.</div>';document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>reviewRequest(b.dataset.approve,'Approved'));document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>reviewRequest(b.dataset.reject,'Rejected'))}
+function reviewRequest(id,status){const r=state.requests.find(x=>x.id===id);if(!r||r.status!=='Pending')return;if(status==='Approved')state.approved+=Number(r.amount);r.status=status;r.reviewedAt=new Date().toISOString();log('Top-up '+status.toLowerCase(),money(r.amount)+' · payment verification required',money(r.amount));save();toast(status==='Approved'?'Request marked approved. Payment still needs independent verification before funds can be treated as deposited.':'Request rejected. No funds were moved.')}
+let lastPositionQuotes={};
+function formatEarnings(n){const value=Number(n)||0;const abs=Math.abs(value);return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:abs>0&&abs<0.01?4:2,maximumFractionDigits:abs>0&&abs<0.01?6:2}).format(value)}
+function setEarningsValue(id,value){const el=$(id);if(!el)return;const n=Number(value)||0;el.textContent=(n>0?'+':n<0?'−':'')+formatEarnings(Math.abs(n));el.classList.toggle('earnings-loss',n<0)}
+function renderEarningsSummary(){const orders=state.orders||[];const realized=orders.filter(o=>o.status!=='Open').reduce((sum,o)=>sum+Number(o.realizedPnl||0),0);const open=openOrders().reduce((sum,o)=>sum+orderPnl(o),0);const total=realized+open;setEarningsValue('realizedEarnings',realized);setEarningsValue('openEarnings',open);setEarningsValue('totalEarnings',total)}
+function renderOrders(){
+  const target=$('tradeHistory');if(!target)return;
+  renderEarningsSummary();
+  const rows=state.orders||[];
+  target.innerHTML=rows.length?rows.slice().reverse().map(o=>{
+    const pnl=orderPnl(o),closedPnl=Number(o.realizedPnl)||0,current=price(o.asset),isOpen=o.status==='Open',shownPnl=isOpen?pnl:closedPnl;
+    const prior=lastPositionQuotes[o.asset],direction=prior&&current>prior?'up':prior&&current<prior?'down':'';
+    const icon=o.symbol==='BTC'?'₿':o.symbol==='ETH'?'◆':o.symbol==='SOL'?'◎':o.symbol==='XRP'?'✕':'✥';
+    const timestamp=isOpen?'Opened '+new Date(o.time).toLocaleString():'Closed '+new Date(o.closedAt||o.time).toLocaleString();
+    return '<article class="table-row position-card position-'+esc(o.asset)+' '+(isOpen&&direction?'price-tick-'+direction:'')+'"><div class="position-icon rounded-xl flex items-center justify-center" style="background:#1c2d43;border:1px solid #354963">'+icon+'</div><div class="position-details"><div class="position-heading"><div class="font-semibold text-sm">'+esc(o.symbol)+' · '+esc(o.side.toUpperCase())+'</div><span class="pill" style="background:'+(isOpen?'#12382f':'#202e3d')+';color:'+(isOpen?'#6ee7b7':'#9fb4c8')+'">'+(isOpen?'OPEN POSITION':'CLOSED')+'</span></div><div class="muted text-xs mt-2">Position size <strong>'+money(o.amount)+'</strong></div><div class="muted text-xs mt-1">Entry price <strong>'+fmtPrice(o.price)+'</strong></div><div class="muted text-xs mt-1">'+(isOpen?'Current market price <strong class="position-current-price '+(direction?'price-tick-'+direction:'')+'">'+fmtPrice(current)+'</strong>':'Closed '+new Date(o.closedAt||o.time).toLocaleString())+'</div><div class="text-sm mt-3 font-bold position-pnl '+(shownPnl>=0?'green':'text-rose-300')+' '+(isOpen&&direction?'price-tick-'+direction:'')+'">'+(isOpen?'Unrealized P/L ':'Realized P/L ')+(shownPnl>=0?'+':'−')+formatEarnings(Math.abs(shownPnl))+'</div></div>'+(isOpen?'<button class="btn position-action" data-close-order="'+esc(o.id)+'">Close position</button>':'<span class="pill position-status" style="background:#202e3d;color:#9fb4c8">Closed</span>')+'</article>';
+  }).join(''):'<div class="muted py-6 text-center">No trades yet. Once verified funds are approved, choose <strong>Trade &amp; portfolio</strong> to open your first position.</div>';
+  document.querySelectorAll('[data-close-order]').forEach(b=>b.onclick=()=>closeOrder(b.dataset.closeOrder));
+  for(const a of assets){const p=price(a[0]);if(p)lastPositionQuotes[a[0]]=p;}
+  if($('positionUpdatedAt'))$('positionUpdatedAt').textContent=state.updatedAt?'Last quote '+new Date(state.updatedAt).toLocaleTimeString():'Waiting for quote…';
+}
+function closeOrder(id){const o=state.orders.find(x=>x.id===id&&x.status==='Open');if(!o)return;const pnl=orderPnl(o);o.status='Closed';o.closedAt=new Date().toISOString();o.realizedPnl=Number(pnl.toFixed(2));state.realizedPnl=Number((Number(state.realizedPnl||0)+o.realizedPnl).toFixed(2));log('Position closed',o.symbol+' · realized P/L '+(o.realizedPnl>=0?'+':'−')+money(Math.abs(o.realizedPnl)),money(o.realizedPnl));save();toast('Position closed and result recorded in your portfolio.')}
+function renderMessages(){const convs=state.conversations;$('messageCount').textContent=String(state.messages.length);$('conversations').innerHTML=convs.length?convs.map(c=>'<button class="w-full text-left p-3 rounded-lg hover:bg-[#172b3d] '+(state.activeConversation===c.id?'bg-[#1b3344]':'')+'" data-conv="'+c.id+'"><div class="text-sm font-semibold">'+esc(c.title)+'</div><div class="muted text-xs mt-1">'+(state.messages.filter(m=>m.conversation===c.id).length)+' messages</div></button>').join(''):'<div class="muted text-xs p-3">Start a conversation to send text, photos or audio attachments in this preview.</div>';document.querySelectorAll('[data-conv]').forEach(b=>b.onclick=()=>{state.activeConversation=b.dataset.conv;save()});const c=convs.find(c=>c.id===state.activeConversation);$('chatHeader').textContent=c?c.title:'Select or start a conversation';const msgs=state.messages.filter(m=>m.conversation===state.activeConversation);$('chatMessages').innerHTML=msgs.map(m=>'<div class="flex '+(m.sender===state.role?'justify-end':'justify-start')+'"><div class="max-w-[85%] rounded-2xl px-4 py-3 '+(m.sender===state.role?'bg-[#174438]':'bg-[#1b2c40]')+'"><div class="text-[10px] muted mb-1">'+(m.sender==='admin'?'Administrator':'Customer')+' · '+new Date(m.time).toLocaleTimeString()+'</div>'+(m.text?'<div class="text-sm whitespace-pre-wrap break-words">'+esc(m.text)+'</div>':'')+(m.data?m.type.startsWith('image/')?'<img src="'+m.data+'" class="max-w-full max-h-56 rounded-lg mt-2">':m.type.startsWith('audio/')?'<audio controls src="'+m.data+'" class="max-w-full mt-2"></audio>':'<a download="'+esc(m.name)+'" href="'+m.data+'" class="underline text-sm">Download attachment</a>':'')+'</div></div>').join('');$('chatMessages').scrollTop=$('chatMessages').scrollHeight}
+function renderWithdrawals(){const rows=Array.isArray(state.withdrawals)?state.withdrawals:[];if($('withdrawCount'))$('withdrawCount').textContent=rows.length+' requests';if($('withdrawHistory'))$('withdrawHistory').innerHTML=rows.length?rows.slice().reverse().map(r=>{const st=String(r.status||'pending').toLowerCase(),label=st==='pending'?'PENDING · ADMIN REVIEW':st==='approved'?'APPROVED · PAYMENT REVIEW':st==='topup_required'?'TOP-UP REQUIRED':st==='rejected'?'REJECTED':st==='paid'?'PAID · CONFIRMED':st==='cancelled'?'CANCELLED':st.toUpperCase(),color=st==='rejected'?'#fb7185':st==='approved'?'#fbbf24':st==='topup_required'?'#60a5fa':st==='paid'?'#6ee7b7':'#c4b5fd';return '<article class="withdrawal-receipt-mini"><div class="flex items-start gap-3"><div class="bank-mark">'+esc(String(r.bank_name||'BANK').split(/\\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase())+'</div><div class="flex-1 min-w-0"><div class="font-semibold">'+money(r.amount)+' · '+esc(r.currency||'USD')+'</div><div class="muted text-xs mt-1">'+esc(r.bank_name)+' · '+esc(r.bank_country)+'</div><div class="muted text-xs mt-1">'+esc(r.account_holder)+' · account ending '+esc(String(r.account_number||'').slice(-4))+'</div><div class="muted text-xs mt-1">Reference: '+esc(String(r.id||'').slice(0,8).toUpperCase())+' · '+new Date(r.time).toLocaleString()+'</div></div></div><div class="pill mt-3" style="display:inline-flex;background:'+color+'20;color:'+color+'">'+label+'</div>'+(r.admin_message?'<div class="mt-3 rounded-xl p-3" style="background:#101b2b;border:1px solid '+color+'55"><div class="eyebrow" style="color:'+color+'">MESSAGE FROM ADMINISTRATOR</div><p class="text-sm mt-2 whitespace-pre-wrap">'+esc(r.admin_message)+'</p></div>':'')+'<p class="muted text-xs mt-2">'+esc(r.eligibility_note||'Your request is saved. Check this section for updates from the administrator.')+'</p>'+(st==='topup_required'?'<button type="button" class="btn mt-3" data-goto-topup>＋ Top up now</button>':'')+'</article>'}).join(''):'<div class="muted py-8 text-center">No withdrawal requests yet. A receipt will appear here after you submit a request.</div>';document.querySelectorAll('[data-goto-topup]').forEach(btn=>btn.onclick=()=>{go('funding');document.getElementById('topupForm')?.scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('topupAmount')?.focus({preventScroll:true})});if($('withdrawPracticePnl')){const p=totalPnl();$('withdrawPracticePnl').textContent=(p>0?'+':p<0?'−':'')+money(Math.abs(p));$('withdrawPracticePnl').style.color=p>0?'#6ee7b7':p<0?'#fb7185':'#c4b5fd'}if($('withdrawableEarningsDisplay'))$('withdrawableEarningsDisplay').textContent=money(withdrawableEarnings())}
+function renderAccountLedger(){const target=$('accountLedgerRows');if(!target)return;const rows=[];for(const c of (state.credits||[])){const deposit=c.credit_type==='deposit';rows.push({time:c.created_at,kind:'credit',title:deposit?'Deposit / top-up credited':'Earnings credit recorded',detail:(c.note|| (deposit?'Added to trading principal':'Held for withdrawal request'))+' · recorded by administrator',amount:Number(c.amount)||0,status:deposit?'DEPOSIT CREDIT':'EARNINGS CREDIT',icon:deposit?'＋':'＄',color:deposit?'#6ee7b7':'#c4b5fd'})}for(const r of (state.requests||[])){const s=String(r.status||'pending').toLowerCase();rows.push({time:r.time||r.created_at||new Date().toISOString(),kind:'funding',title:s==='approved'?'Funding request approved':s==='rejected'?'Funding request rejected':'Funding request submitted',detail:(r.note||'Top-up request')+' · approval records a platform balance; independently verify any real payment',amount:Number(r.amount)||0,status:s.toUpperCase(),icon:'＋',color:s==='approved'?'#6ee7b7':s==='rejected'?'#fda4af':'#fbbf24'})}for(const o of (state.orders||[])){const pnl=o.status==='Closed'?Number(o.realizedPnl)||0:orderPnl(o);rows.push({time:o.status==='Closed'?(o.closedAt||o.time):o.time,kind:'trade',title:o.status==='Closed'?'Position closed · capital released':'Position opened',detail:(o.symbol||'Asset')+' · '+String(o.side||'').toUpperCase()+' · position capital '+money(o.amount)+(o.status==='Closed'?' released back to available trading balance':' committed to open position')+' · '+(o.status==='Closed'?'realized':'estimated open-trade')+' P/L '+(pnl>0?'+':pnl<0?'−':'')+formatEarnings(Math.abs(pnl))+(pnl>0?' · earnings are held outside trading balance':''),amount:o.status==='Closed'?(Number(o.amount)||0)+pnl:Number(o.amount)||0,status:o.status==='Closed'?'CLOSED':'OPEN',icon:o.status==='Closed'?'✓':'↗',color:o.status==='Closed'?(pnl>=0?'#6ee7b7':'#fda4af'):'#a78bfa'})}for(const w of (state.withdrawals||[])){const s=String(w.status||'pending').toLowerCase();rows.push({time:w.time||w.created_at,title:s==='pending'?'Withdrawal request on hold':s==='paid'?'Withdrawal marked paid':s==='rejected'?'Withdrawal request rejected':'Withdrawal request update',detail:(w.bank_name||'Bank transfer')+' · '+(w.eligibility_note||'Administrator review'),amount:-Math.abs(Number(w.amount)||0),status:s.toUpperCase(),icon:'↗',color:s==='paid'?'#6ee7b7':s==='rejected'?'#fda4af':'#fbbf24'})}rows.sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));const balance=$('ledgerBalance'),pnlEl=$('ledgerPnl'),depEl=$('ledgerDeposits'),earnEl=$('ledgerEarnings');if(balance)balance.textContent=money(totalBalance());if(depEl)depEl.textContent=money(approvedFunding());if(earnEl)earnEl.textContent=money(withdrawableEarnings());if(pnlEl){const p=totalPnl();pnlEl.textContent=(p>0?'+':p<0?'−':'')+money(Math.abs(p));pnlEl.style.color=p>0?'#6ee7b7':p<0?'#fda4af':'#c4b5fd'}target.innerHTML=rows.length?rows.map(r=>'<article class="ledger-row"><div class="ledger-icon" style="color:'+r.color+';border-color:'+r.color+'55">'+r.icon+'</div><div class="flex-1 min-w-0"><div class="ledger-title">'+esc(r.title)+'</div><div class="ledger-detail">'+esc(r.detail||'')+'</div><div class="ledger-detail">'+(r.time?new Date(r.time).toLocaleString():'Date unavailable')+'</div><span class="ledger-status" style="color:'+r.color+';border:1px solid '+r.color+'55">'+esc(r.status)+'</span></div><div class="ledger-amount" style="color:'+r.color+'">'+(r.kind==='trade'&&r.status==='OPEN'?money(r.amount):r.kind==='funding'?(r.status==='APPROVED'?'+':'')+money(Math.abs(r.amount))+(r.status==='PENDING'?' requested':''):((r.amount>=0?'+':'−')+money(Math.abs(r.amount))))+'</div></article>').join(''):'<div class="muted py-6 text-center">No funding, trading or withdrawal records yet.</div>'}
+function renderAll(){renderBalance();renderPortfolioPerformance();renderInboxNotice();renderAccountLedger();renderActivity();renderFunding();renderWithdrawals();renderOrders();renderMessages();$('riskText').textContent='Risk limit: '+($('riskLimit')?.value||1)+'% of the order size ('+money((Number($('tradeAmount')?.value)||0)*(Number($('riskLimit')?.value||1)/100))+'). Planning estimate only; losses can exceed estimates.';renderAssets();renderTradeSnapshot()}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+const titles={overview:['Market overview','Your market desk, strategy signals and portfolio at a glance.'],markets:['Markets & chart','Review public market prices and recent snapshots.'],trade:['Trade & portfolio','Place orders and follow open positions, portfolio value and trade history.'],funding:['Funding requests','Submit and review funding requests.'],messages:['Messages','Your secure support inbox.'],history:['Account activity','Your funding requests, positions and trading records in one place.'],profile:['My profile','Personalize your workspace with a photo and country.'],admin:['Admin center','Manage the platform, customers and funding requests.']};
+function go(page){document.querySelectorAll('.tabpage').forEach(p=>p.classList.remove('active'));$('page-'+page).classList.add('active');document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('pageTitle').textContent=titles[page][0];$('pageSubtitle').textContent=titles[page][1];if(page==='markets')renderChart();if(page==='admin')renderFunding();if(page==='messages')renderMessages();window.scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));
 
-        function requestWithdrawal() {
-            alert(translations[lang].alertWithdraw);
-        }
-    </script>
-</body>
-</html>
+const apexPageTrail=[];
+const apexOriginalGo=go;
+go=function(page){
+ const current=document.querySelector('.tabpage.active')?.id?.replace('page-','');
+ if(current && current!==page) apexPageTrail.push(current);
+ const result=apexOriginalGo(page);
+ const back=$('pageBackBtn');
+ if(back) back.style.visibility=(page==='overview'||page==='admin')?'hidden':'visible';
+ const lang=$('languageSelect');
+ if(lang) lang.classList.toggle('hidden', window.apexCurrentRole==='admin');
+ return result;
+};
+$('pageBackBtn').onclick=()=>{
+ let target=apexPageTrail.pop();
+ const role=window.apexCurrentRole||'customer';
+ if(!target || (role==='admin'&&!['admin','messages','profile'].includes(target)) || (role!=='admin'&&target==='admin')) target=role==='admin'?'admin':'overview';
+ apexOriginalGo(target);
+ const lang=$('languageSelect'); if(lang)lang.classList.toggle('hidden',role==='admin');
+ const back=$('pageBackBtn'); if(back)back.style.visibility=(target==='overview'||target==='admin')?'hidden':'visible';
+};
+document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>go(b.dataset.goto));
+$('roleBtn').onclick=()=>{state.role=state.role==='customer'?'admin':'customer';$('roleBtn').textContent='View: '+(state.role==='admin'?'Admin':'Customer');save();toast('Preview view switched. This is not a security boundary.');if(state.role==='admin')go('admin')};
+$('switchCustomer').onclick=()=>{state.role='customer';$('roleBtn').textContent='View: Customer';save();go('overview')};$('switchAdmin').onclick=()=>{state.role='admin';$('roleBtn').textContent='View: Admin';save();go('admin')};
+$('refreshPrices').onclick=fetchPrices;$('assetSelect').onchange=e=>{selectedAsset=e.target.value;renderChart()};$('tradeAsset').onchange=renderTradeSnapshot;$('tradeAmount').oninput=renderAll;$('riskLimit').oninput=renderAll;
+$('topupForm').onsubmit=e=>{e.preventDefault();const amount=Number($('topupAmount').value);if(!Number.isFinite(amount)||amount<=0)return toast('Enter a valid positive amount.');const r={id:crypto.randomUUID(),amount,note:$('topupNote').value.trim(),time:new Date().toISOString(),status:'Pending'};state.requests.push(r);log('Funding request submitted',money(amount)+' · pending administrator review',money(amount));save();$('topupForm').reset();toast('Request submitted as pending. No funds were moved.')};
+$('giftForm').onsubmit=e=>{e.preventDefault();const amount=Number($('giftAmount').value);if(!Number.isFinite(amount)||amount<0)return toast('Enter a valid gift amount.');state.gift={amount,title:$('giftTitle').value.trim()||'Welcome credit',terms:$('giftTerms').value.trim()};log('Welcome gift updated','Preview gift set to '+money(amount));save();toast('Welcome credit saved in this browser.')};
+$('analyzeBtn').onclick=()=>{$('analysisOutput').classList.remove('hidden');$('analysisOutput').textContent=makeBrief()+' Current price for '+$('tradeAsset').selectedOptions[0].text+': '+fmtPrice(price($('tradeAsset').value))+'. A single public-price snapshot is insufficient to predict a reliable trade.'};
+$('placeOrder').onclick=()=>{const id=$('tradeAsset').value,amount=Number($('tradeAmount').value),p=price(id),a=assets.find(x=>x[0]===id);if(!p)return toast('Current market price is unavailable. Wait for the live market feed before placing a trade.');if(!Number.isFinite(amount)||amount<=0)return toast('Enter a valid trade amount.');if(amount>totalBalance())return toast('Order size exceeds your available trading balance. Reduce the order size or request a top-up.');const o={id:crypto.randomUUID(),asset:id,symbol:a[1],side:$('tradeSide').value,amount,price:p,time:new Date().toISOString(),status:'Open'};state.orders.push(o);log('Trade placed',o.side.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));save();toast('Trade added to your portfolio.')};
+$('newConversation').onclick=()=>{const title=prompt('Conversation title','Support conversation');if(!title)return;const c={id:crypto.randomUUID(),title:title.slice(0,80),createdAt:new Date().toISOString()};state.conversations.push(c);state.activeConversation=c.id;save()};
+$('attachment').onchange=e=>{$('attachmentName').textContent=e.target.files[0]?e.target.files[0].name+' · local attachment':''};
+$('messageForm').onsubmit=e=>{e.preventDefault();const text=$('messageText').value.trim(),file=$('attachment').files[0];if(!state.activeConversation){toast('Start or select a conversation first.');return}if(!text&&!file)return;const send=(data='',type='',name='')=>{state.messages.push({id:crypto.randomUUID(),conversation:state.activeConversation,sender:state.role,text,data,type,name,time:new Date().toISOString()});log('Message sent',(state.role==='admin'?'Admin':'Customer')+' · '+(text||name||'attachment'));save();$('messageText').value='';$('attachment').value='';$('attachmentName').textContent=''};if(file){if(file.size>900000){toast('Preview attachments must be under 900 KB. Configure secure storage for larger files.');return}const reader=new FileReader();reader.onload=()=>send(reader.result,file.type,file.name);reader.readAsDataURL(file)}else send()};
+
+function openActivityReceipt(id){
+ const x=state.activity.find(row=>String(row.id||'')===String(id||''));if(!x)return;
+ const title=activityLabel(x),type=String(x.type||'').toLowerCase(),date=new Date(x.time);
+ const dateText=Number.isNaN(date.getTime())?'Date unavailable':date.toLocaleString();
+ const reference=String(x.id||'').replace(/-/g,'').slice(0,12).toUpperCase()||'LOCAL-RECORD';
+ let status='Recorded',note='This receipt records the account activity shown above. It is not proof of a bank transfer or payment.';
+ if(type.includes('top-up')||type.includes('funding')){
+   status=/approved/i.test(x.type||'')?'Approved by administrator':/rejected/i.test(x.type||'')?'Request rejected':'Pending administrator review';
+   note=/approved/i.test(x.type||'')?'This record shows that an administrator approved the request and added the amount to the platform trading balance after payment verification. It is not a bank transfer receipt or proof of a payout.':'This confirms that a funding request was recorded. A pending request does not confirm payment receipt or add funds to the trading balance.';
+ }else if(type.includes('position closed')||type.includes('order placed')||type.includes('trade placed')){
+   status='Recorded';note='This receipt confirms that the activity was recorded on this platform. It does not confirm execution by an external exchange, a cash transaction, or a bank payment.';
+ }
+ $('activityReceiptTitle').textContent=title;
+ $('activityReceiptSubtitle').textContent='Saved account record · '+dateText;
+ const rows=[['Record reference',reference],['Activity',title],['Details',x.detail||'No additional details'],['Amount / value',x.amount||'Not specified'],['Recorded at',dateText],['Record status',status]];
+ $('activityReceiptBody').innerHTML=rows.map(([k,v])=>'<div class="activity-receipt-row"><span>'+esc(k)+'</span><span>'+esc(v)+'</span></div>').join('');
+ $('activityReceiptNote').textContent=note;
+ $('activityReceiptModal').classList.remove('hidden');document.body.style.overflow='hidden';
+}
+function closeActivityReceipt(){$('activityReceiptModal').classList.add('hidden');document.body.style.overflow='';}
+document.addEventListener('click',e=>{const record=e.target.closest('[data-activity-id]');if(record){openActivityReceipt(record.dataset.activityId);return;}if(e.target.closest('#activityReceiptClose,#activityReceiptDone'))closeActivityReceipt();if(e.target.id==='activityReceiptModal')closeActivityReceipt();});
+document.getElementById('activityReceiptPrint')?.addEventListener('click',()=>window.print());
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeActivityReceipt();});
+
+$('exportActivity').onclick=()=>{const csv=['time,type,detail,amount',...state.activity.map(x=>[x.time,x.type,x.detail,x.amount].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ai-trading-bot-activity.csv';a.click();URL.revokeObjectURL(a.href)};
+$('resetPreview').onclick=()=>{if(confirm('Clear all preview data stored in this browser?')){localStorage.removeItem(STORE);state=load();save();go('overview');toast('Local preview reset.')}};
+
+const APEX_I18N={en:{overview:'Overview',markets:'Markets & chart',strategy:'Trade & portfolio',funding:'Funding requests',messages:'Messages',activity:'Activity history',profile:'My profile',admin:'Admin center',workspace:'PRIVATE WORKSPACE',accountSettings:'ACCOUNT SETTINGS',profileTitle:'Your profile',profileSub:'Personalize your workspace with a photo and country.',photoHint:'JPG, PNG or WebP · up to 5 MB',displayName:'Display name',country:'Country',saveProfile:'Save profile',enableNotifications:'Enable message notifications',buyingPower:'Account value',pnl:'Open P/L',openPositions:'Open positions',welcomeGift:'A WELCOME GIFT FOR YOU',welcomeCredit:'Welcome credit',exploreTrading:'Explore trading',topUp:'Top up',giftSettings:'Welcome gift settings',reviewRequests:'Review funding requests',customerAccounts:'Customer accounts',tradingOperations:'Trading operations',pendingRequests:'Pending requests',inboxMessages:'Messages in inbox',welcomeTitle:'Welcome to AI Trading Bot',welcomeIntro:'Your private markets workspace starts here.',enterWorkspace:'Enter your workspace',giftEyebrow:'A LITTLE SOMETHING FOR YOU'},es:{overview:'Resumen',markets:'Mercados y gráfico',strategy:'Trading y cartera',funding:'Solicitudes de fondos',messages:'Mensajes',activity:'Historial de actividad',profile:'Mi perfil',admin:'Centro de administración',workspace:'ESPACIO PRIVADO',accountSettings:'CONFIGURACIÓN DE CUENTA',profileTitle:'Tu perfil',profileSub:'Personaliza tu espacio con una foto y tu país.',photoHint:'JPG, PNG o WebP · hasta 5 MB',displayName:'Nombre para mostrar',country:'País',saveProfile:'Guardar perfil',enableNotifications:'Activar notificaciones de mensajes',buyingPower:'Capital disponible',pnl:'Ganancias/pérdidas abiertas',openPositions:'Posiciones abiertas',welcomeGift:'UN REGALO DE BIENVENIDA',welcomeCredit:'Regalo de bienvenida',exploreTrading:'Explorar trading',topUp:'Añadir fondos',giftSettings:'Configuración del regalo',reviewRequests:'Revisar solicitudes de fondos',customerAccounts:'Cuentas de clientes',tradingOperations:'Operaciones de trading',pendingRequests:'Solicitudes pendientes',inboxMessages:'Mensajes recibidos',welcomeTitle:'Bienvenido a AI Trading Bot',welcomeIntro:'Tu espacio privado de mercados comienza aquí.',enterWorkspace:'Entrar a tu espacio',giftEyebrow:'UN DETALLE PARA TI'}};
+function apexSetLanguage(lang){const l=lang==='es'?'es':'en';localStorage.setItem('apex-language',l);document.documentElement.lang=l;document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.dataset.i18n;if(APEX_I18N[l][k])el.textContent=APEX_I18N[l][k]});const sel=document.getElementById('languageSelect');if(sel)sel.value=l;const ti=document.getElementById('giftModalTitle'),intro=document.getElementById('giftModalIntro'),cont=document.getElementById('giftModalContinue'),ey=document.querySelector('#welcomeGiftModal .eyebrow');if(ti)ti.textContent=APEX_I18N[l].welcomeTitle;if(intro)intro.textContent=APEX_I18N[l].welcomeIntro;if(cont)cont.textContent=APEX_I18N[l].enterWorkspace;if(ey)ey.textContent=APEX_I18N[l].giftEyebrow;const active=document.querySelector('.tabpage.active');if(active){const key=active.id.replace('page-','');const tr={en:{overview:['Market overview','Your market desk, strategy signals and portfolio at a glance.'],markets:['Markets & chart','Review public market prices and recent snapshots.'],trade:['AI strategy lab','Review market context and place orders within your account.'],funding:['Funding requests','Submit and review funding requests.'],messages:['Messages','Your secure support inbox.'],history:['Activity history','Review your account activity.'],profile:['My profile','Personalize your workspace with a photo and country.'],admin:['Admin center','Manage the platform, customers and funding requests.']},es:{overview:['Resumen del mercado','Tu panel de mercado, señales de estrategia y cartera de un vistazo.'],markets:['Mercados y gráfico','Consulta precios públicos y movimientos recientes.'],trade:['Trading y cartera','Realiza órdenes y consulta posiciones abiertas, valor de cartera e historial.'],funding:['Solicitudes de fondos','Envía y consulta solicitudes de fondos.'],messages:['Mensajes','Tu bandeja de soporte segura.'],history:['Actividad de la cuenta','Tus solicitudes y registros de trading en un solo lugar.'],profile:['Mi perfil','Personaliza tu espacio con una foto y tu país.'],admin:['Centro de administración','Gestiona la plataforma, los clientes y las solicitudes.']}};const pair=tr[l][key];if(pair){document.getElementById('pageTitle').textContent=pair[0];document.getElementById('pageSubtitle').textContent=pair[1]}}window.apexRefreshCountries?.();}
+window.apexSetLanguage=apexSetLanguage;document.getElementById('languageSelect')?.addEventListener('change',e=>apexSetLanguage(e.target.value));apexSetLanguage(localStorage.getItem('apex-language')||'en');
+renderAll();$('roleBtn').textContent='View: '+(state.role==='admin'?'Admin':'Customer');fetchPrices();setInterval(fetchPrices,15000);
+</script>
+<script src="./supabase-backend.js"></script>
+</body></html>
