@@ -524,17 +524,30 @@
     const bank_country=withdrawCountryEl.value;
     const bank_name=withdrawBankEl.value;
     const account_holder=withdrawHolderEl.value.trim();
-    const account_number=withdrawAccountEl.value.replace(/\s/g,'');
-    if(!user||!Number.isFinite(amount)||amount<=0)return toastSafe('Enter a valid withdrawal amount.');
-    if(!bank_name||account_holder.length<2||!/^[0-9]{6,24}$/.test(account_number))return toastSafe('Check the selected bank, account holder name, and account number.');
-    if(!confirm('Review your bank destination before continuing. No transfer will be made because this workspace has no verified cash balance or connected payout provider. Save this ineligible request for your records?'))return;
-    const payload={user_id:user.id,amount,currency:'USD',bank_country,bank_name,account_holder,account_number,status:'ineligible',eligibility_note:'No verified cash balance or payment processor is connected.'};
-    const {error}=await client.from('withdrawal_requests').insert(payload);
+    const account_number=withdrawAccountEl.value.replace(/[\\s-]/g,'');
+    if(!user||!Number.isFinite(amount)||amount<=0)return toastSafe('Enter a valid withdrawal amount and sign in.');
+    if(!bank_name||account_holder.length<2||!/^[A-Za-z0-9]{6,34}$/.test(account_number))return toastSafe('Check the selected bank, account holder name, and account number.');
+    const {data:approvedTopups,error:topupError}=await client.from('topup_requests').select('id').eq('user_id',user.id).eq('status','approved').limit(1);
+    if(topupError)return toastSafe('Could not verify top-up eligibility. Please try again.');
+    if(!approvedTopups||approvedTopups.length===0){
+      const result=document.getElementById('withdrawResult');result.classList.remove('hidden');
+      result.innerHTML='<div class="flex items-start gap-3"><div class="receipt-check">!</div><div><strong>Top up before requesting a withdrawal</strong><p class="text-sm mt-2">There is no approved top-up request on this account yet. Submit a top-up request first. Administrator approval must still be checked against the actual payment before any cash withdrawal can be processed.</p><button type="button" id="goTopUpFromWithdrawal" class="btn mt-4">＋ Go to Add funds</button></div></div>';
+      document.getElementById('goTopUpFromWithdrawal').onclick=()=>{document.getElementById('topupForm').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('topupAmount').focus({preventScroll:true})};
+      result.scrollIntoView({behavior:'smooth',block:'center'});return;
+    }
+    const eligibility_note='Received and held for administrator review. Actual payment and available cash must be verified before any payout.';
+    const payload={user_id:user.id,amount,currency:'USD',bank_country,bank_name,account_holder,account_number,status:'pending',eligibility_note};
+    const {data:savedRequest,error}=await client.from('withdrawal_requests').insert(payload).select('id,created_at').single();
     if(error)return toastSafe('Withdrawal request could not be saved: '+error.message);
-    log('Withdrawal eligibility check',money(amount)+' requested to '+bank_name+' · not eligible; no transfer sent');
-    document.getElementById('withdrawResult').classList.remove('hidden');
-    document.getElementById('withdrawResult').innerHTML='<strong>Withdrawal not available yet</strong><p class="text-sm mt-2">This account has no verified cash balance eligible for withdrawal, and a payout provider is not connected. Practice trading results and welcome credits are not cash. Adding funds does not guarantee a withdrawal. No money has been sent.</p>';
-    document.getElementById('withdrawForm').reset();refreshBankOptions();await reloadAndToast('Eligibility result saved securely. No bank transfer was sent.');
+    const reference=String(savedRequest.id).slice(0,8).toUpperCase();
+    log('Withdrawal request received',money(amount)+' to '+bank_name+' · held for administrator review');
+    const result=document.getElementById('withdrawResult');result.classList.remove('hidden');
+    const flag=withdrawCountryEl.selectedOptions[0]?.textContent.split(' ')[0]||'🌐';
+    result.innerHTML='<div class="flex items-start gap-3"><div class="receipt-check">✓</div><div class="flex-1 min-w-0"><div class="eyebrow" style="color:#6ee7b7">REQUEST RECEIPT · AI TRADING BOT</div><h3 class="text-xl font-bold mt-1">Withdrawal request received successfully</h3><p class="text-sm mt-2">Your request has been saved and placed on hold for administrator review. This confirms receipt of your request, not that a bank transfer has been sent.</p><div class="receipt-reference mt-4">REFERENCE · '+safe(reference)+'</div><div class="grid grid-cols-2 gap-3 mt-4"><div class="rounded-xl p-3" style="background:#101b2b"><div class="muted text-xs">Requested amount</div><div class="font-bold text-lg mt-1">'+money(amount)+'</div></div><div class="rounded-xl p-3" style="background:#101b2b"><div class="muted text-xs">Current status</div><div class="font-bold mt-1" style="color:#fcd34d">On hold</div></div></div><div class="rounded-xl p-3 mt-3" style="background:#101b2b"><div class="font-semibold">'+safe(bank_name)+'</div><div class="muted text-xs mt-1">'+safe(flag)+' '+safe(bank_country)+' · '+safe(account_holder)+'</div><div class="muted text-xs mt-1">Account ending '+safe(account_number.slice(-4))+'</div><div class="muted text-xs mt-1">'+new Date(savedRequest.created_at||Date.now()).toLocaleString()+'</div></div><p class="muted text-xs mt-3">No cash is moved by this receipt. An administrator must verify settled funds and a working payout provider before any payment is marked complete.</p><button type="button" id="printWithdrawalReceipt" class="btn mt-3">Print / Save receipt</button></div></div>';
+    document.getElementById('printWithdrawalReceipt').onclick=()=>window.print();
+    document.getElementById('withdrawForm').reset();refreshBankOptions();updateWithdrawalPreview();
+    await reloadAndToast('Withdrawal request received. It is on hold for administrator review; no transfer has been sent.');
+    result.scrollIntoView({behavior:'smooth',block:'center'});
   };
   // Render private withdrawal requests in the administrator control room.
   function renderWithdrawalAdmin(){
