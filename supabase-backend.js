@@ -239,6 +239,16 @@
       if (error) throw error;
       profile = created;
     }
+    // Bind the administrator identity to the verified admin profile; never silently open the customer workspace for the admin email.
+    const isConfiguredAdmin = String(user.email || '').trim().toLowerCase() === 'razzymoni044@gmail.com';
+    if (isConfiguredAdmin && profile.role !== 'admin') {
+      await client.auth.signOut();
+      user = null; profile = null; cloudReady = false;
+      document.getElementById('layout').classList.add('hidden');
+      document.getElementById('authGate').classList.remove('hidden');
+      statusLine('Administrator access is not configured correctly for this account. Please contact the site administrator.', true);
+      return;
+    }
     state.role = profile.role === 'admin' ? 'admin' : 'customer';
     window.apexCurrentRole = state.role;
     if(accountJustCreated && state.role==='customer') localStorage.setItem('apex-show-account-success-'+user.id,'1');
