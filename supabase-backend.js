@@ -228,7 +228,7 @@
     if (!user || loadingCloud) return;
     loadingCloud = true;
     try {
-      const [giftRes, dashboardRes, requestsRes, messagesRes, ordersRes, activityRes, profilesRes, withdrawalsRes] = await Promise.all([
+      const [giftRes, dashboardRes, requestsRes, messagesRes, ordersRes, activityRes, profilesRes, withdrawalsRes, creditsRes] = await Promise.all([
         client.from('app_settings').select('value').eq('key','welcome_gift').maybeSingle(),
         client.from('app_settings').select('value').eq('key','dashboard_settings').maybeSingle(),
         client.from('topup_requests').select('*').order('created_at',{ascending:true}),
@@ -236,15 +236,18 @@
         client.from('simulated_orders').select('*').order('created_at',{ascending:true}),
         client.from('activity_events').select('*').order('created_at',{ascending:false}).limit(300),
         client.from('profiles').select('id,display_name,role,created_at,country_code,avatar_path,is_blocked,blocked_at,blocked_reason,deleted_at'),
-        client.from('withdrawal_requests').select('*').order('created_at',{ascending:true})
+        client.from('withdrawal_requests').select('*').order('created_at',{ascending:true}),
+        client.from('account_credits').select('*').order('created_at',{ascending:true})
       ]);
-      for (const r of [giftRes,dashboardRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes,withdrawalsRes]) if (r.error) throw r.error;
+      for (const r of [giftRes,dashboardRes,requestsRes,messagesRes,ordersRes,activityRes,profilesRes,withdrawalsRes,creditsRes]) if (r.error) throw r.error;
       if (giftRes.data?.value) state.gift = giftRes.data.value;
       if (dashboardRes.data?.value) dashboardSettings={...dashboardSettings,...dashboardRes.data.value};
       applyDashboardSettings();fillDashboardSettingsForm();
       state.requests = (requestsRes.data || []).map(r => ({id:r.id,amount:Number(r.amount),note:r.note,time:r.created_at,status:r.status[0].toUpperCase()+r.status.slice(1),reviewedAt:r.reviewed_at}));
       state.withdrawals = (withdrawalsRes.data || []).map(r => ({id:r.id,user_id:r.user_id,amount:Number(r.amount),currency:r.currency,bank_country:r.bank_country,bank_name:r.bank_name,account_holder:r.account_holder,account_number:r.account_number,status:r.status,eligibility_note:r.eligibility_note,admin_message:r.admin_message||'',time:r.created_at,reviewedAt:r.reviewed_at}));
+      state.credits = (creditsRes.data || []).map(c => ({id:c.id,user_id:c.user_id,amount:Number(c.amount),credit_type:c.credit_type,note:c.note||'',created_by:c.created_by,created_at:c.created_at}));
       state.customers = (profilesRes.data || []).map(p => ({id:p.id,display_name:p.display_name || '',role:p.role || 'customer',country_code:p.country_code || '',avatar_path:p.avatar_path || '',created_at:p.created_at || '',is_blocked:!!p.is_blocked,blocked_at:p.blocked_at||null,blocked_reason:p.blocked_reason||'',deleted_at:p.deleted_at||null}));
+      populateAdminCreditCustomers();
       if (state.role === 'admin') state.customers = await Promise.all(state.customers.map(async c => { if (!c.avatar_path) return c; const { data: signed } = await client.storage.from('profile-photos').createSignedUrl(c.avatar_path,3600); return {...c,avatar_url:signed?.signedUrl || ''}; }));
       const profMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id,p.display_name || '']));
       if (profile?.avatar_path) { const { data: avatar } = await client.storage.from('profile-photos').createSignedUrl(profile.avatar_path, 3600); profile.avatar_url = avatar?.signedUrl || ''; }
@@ -579,14 +582,9 @@
     const account_number=withdrawAccountEl.value.replace(/[\\s-]/g,'');
     if(!user||!Number.isFinite(amount)||amount<=0)return toastSafe('Enter a valid withdrawal amount and sign in.');
     if(!bank_name||account_holder.length<2||!/^[A-Za-z0-9]{6,34}$/.test(account_number))return toastSafe('Check the selected bank, account holder name, and account number.');
-    const {data:approvedTopups,error:topupError}=await client.from('topup_requests').select('id').eq('user_id',user.id).eq('status','approved').limit(1);
-    if(topupError)return toastSafe('Could not verify top-up eligibility. Please try again.');
-    if(!approvedTopups||approvedTopups.length===0){
-      const result=document.getElementById('withdrawResult');result.classList.remove('hidden');
-      result.innerHTML='<div class="flex items-start gap-3"><div class="receipt-check">!</div><div><strong>Top up before requesting a withdrawal</strong><p class="text-sm mt-2">There is no approved top-up request on this account yet. Submit a top-up request first. Administrator approval must still be checked against the actual payment before any cash withdrawal can be processed.</p><button type="button" id="goTopUpFromWithdrawal" class="btn mt-4">＋ Go to Add funds</button></div></div>';
-      document.getElementById('goTopUpFromWithdrawal').onclick=()=>{document.getElementById('topupForm').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('topupAmount').focus({preventScroll:true})};
-      result.scrollIntoView({behavior:'smooth',block:'center'});return;
-    }
+    const eligible=typeof withdrawableEarnings==='function'?withdrawableEarnings():0;
+    if(amount>eligible+0.000001)return toastSafe('Your withdrawal request exceeds earnings currently held for withdrawal. Earnings cannot be used for another trade, and practice earnings are not cash until a verified payout is available.');
+    if(eligible<=0)return toastSafe('There are no earnings currently available for a withdrawal request. Close a practice position with a recorded result or contact the administrator about your account ledger.');
     const eligibility_note='Received and held for administrator review. Actual payment and available cash must be verified before any payout.';
     const payload={user_id:user.id,amount,currency:'USD',bank_country,bank_name,account_holder,account_number,status:'pending',eligibility_note};
     const {data:savedRequest,error}=await client.from('withdrawal_requests').insert(payload).select('id,created_at').single();
@@ -627,6 +625,37 @@
       await reloadAndToast(next==='message_only'?'Message saved and sent to the customer dashboard.':'Customer dashboard updated: '+(next==='topup_required'?'top-up required':next)+'.');
     });
   }
+
+  function populateAdminCreditCustomers(){
+    const select=document.getElementById('adminCreditCustomer');
+    if(!select)return;
+    const previous=select.value;
+    const customers=(state.customers||[]).filter(c=>c.role==='customer'&&!c.deleted_at);
+    select.innerHTML='<option value="">Choose customer</option>'+customers.map(c=>'<option value="'+safe(c.id)+'">'+safe(c.display_name||('Customer '+String(c.id).slice(0,8)))+' · '+safe(c.id.slice(0,8))+'</option>').join('');
+    if(customers.some(c=>c.id===previous))select.value=previous;
+  }
+  document.getElementById('adminCreditForm')?.addEventListener('submit',async e=>{
+    e.preventDefault();
+    if(!user||state.role!=='admin')return toastSafe('Administrator access required.');
+    const target=document.getElementById('adminCreditCustomer').value;
+    const amount=Number(document.getElementById('adminCreditAmount').value);
+    const credit_type=document.getElementById('adminCreditType').value;
+    const note=document.getElementById('adminCreditNote').value.trim();
+    if(!target||!(state.customers||[]).some(c=>c.id===target&&c.role==='customer'))return toastSafe('Choose a valid customer account.');
+    if(!Number.isFinite(amount)||amount<=0||!['deposit','earnings'].includes(credit_type))return toastSafe('Enter a valid credit amount and type.');
+    const button=e.currentTarget.querySelector('button[type="submit"]');if(button)button.disabled=true;
+    try{
+      const {error}=await client.from('account_credits').insert({user_id:target,amount,credit_type,note,created_by:user.id});
+      if(error)throw error;
+      const detail=(credit_type==='deposit'?'Deposit / trading-balance credit':'Earnings credit held for withdrawal')+' of '+money(amount)+(note?' · '+note:'');
+      const {error:auditError}=await client.from('activity_events').insert({user_id:target,actor_id:user.id,event_type:credit_type==='deposit'?'Administrator deposit credit':'Administrator earnings credit',details:{detail,amount:money(amount),credit_type}});
+      if(auditError)console.warn('Credit audit event could not be saved',auditError);
+      log('Customer account credited',detail,money(amount));
+      document.getElementById('adminCreditAmount').value='';document.getElementById('adminCreditNote').value='';
+      await reloadAndToast('Exact credit of '+money(amount)+' recorded as '+(credit_type==='deposit'?'trading principal.':'withdrawal-only earnings.')+' No bank transfer was sent.');
+    }catch(err){toastSafe('Customer credit could not be saved: '+(err?.message||String(err)))}
+    finally{if(button)button.disabled=false}
+  });
 
   // The top-up request is stored in the database and remains pending until an admin reviews it.
   document.getElementById('topupForm').onsubmit = async e => {
