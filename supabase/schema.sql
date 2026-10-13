@@ -121,6 +121,8 @@ with check (id = auth.uid() or private.is_admin());
 drop policy if exists "settings_read_authenticated" on public.app_settings;
 create policy "settings_read_authenticated" on public.app_settings
 for select to authenticated using (true);
+drop policy if exists settings_read_welcome_gift_public on public.app_settings;
+create policy settings_read_welcome_gift_public on public.app_settings for select to anon using (key = 'welcome_gift');
 drop policy if exists "settings_admin_write" on public.app_settings;
 drop policy if exists settings_admin_insert on public.app_settings;
 drop policy if exists settings_admin_update on public.app_settings;
