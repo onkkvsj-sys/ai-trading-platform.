@@ -132,7 +132,7 @@ create policy "activity_read_owner_or_admin" on public.activity_events
 for select to authenticated using (user_id = auth.uid() or public.is_admin());
 drop policy if exists "activity_insert_self_or_admin" on public.activity_events;
 create policy "activity_insert_self_or_admin" on public.activity_events
-for insert to authenticated with check (actor_id = auth.uid() or public.is_admin());
+for insert to authenticated with check ((user_id = auth.uid() and (actor_id is null or actor_id = auth.uid())) or public.is_admin());
 
 drop policy if exists "orders_read_owner_or_admin" on public.simulated_orders;
 create policy "orders_read_owner_or_admin" on public.simulated_orders
@@ -140,7 +140,7 @@ for select to authenticated using (user_id = auth.uid() or public.is_admin());
 drop policy if exists "orders_insert_own_simulated" on public.simulated_orders;
 create policy "orders_insert_own_simulated" on public.simulated_orders
 for insert to authenticated with check (
-  user_id = auth.uid() and execution_mode = 'simulated' and status = 'recorded'
+  user_id = auth.uid() and execution_mode = 'simulated' and status = 'open'
 );
 
 -- Profile bootstrap, order state, and private chat attachment storage.
