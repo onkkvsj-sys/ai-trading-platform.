@@ -75,25 +75,25 @@ language sql
 stable
 security definer
 set search_path = public
-as $
+as $fn$
   select exists (
     select 1 from public.profiles
     where id = auth.uid() and role = 'admin'
   );
-$;
+$fn$;
 revoke all on function private.is_admin() from public, anon;
 grant execute on function private.is_admin() to authenticated;
 
 create or replace function public.protect_profile_role()
 returns trigger language plpgsql security definer set search_path = public, private
-as $
+as $fn$
 begin
   if new.role is distinct from old.role and auth.uid() is not null and not private.is_admin() then
     raise exception 'Only an administrator can change profile roles';
   end if;
   return new;
 end;
-$;
+$fn$;
 revoke all on function public.protect_profile_role() from public, anon, authenticated;
 drop trigger if exists protect_profile_role_trigger on public.profiles;
 create trigger protect_profile_role_trigger before update on public.profiles
