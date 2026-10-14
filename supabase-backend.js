@@ -65,7 +65,6 @@
   gate.id = 'authGate';
   gate.innerHTML = `
     <div id="authCard">
-      <div class="flex items-center gap-3 mb-6"><div class="w-11 h-11 rounded-xl flex items-center justify-center font-black text-[#06251e]" style="background:linear-gradient(140deg,#43e0b0,#7cbaff)">A</div><div><div class="font-bold tracking-wide">APEX <span class="green">TERMINAL</span></div><div class="muted text-[10px] tracking-widest mt-1">PRIVATE MARKETS WORKSPACE</div></div></div>
       <h1 id="authTitle" class="text-2xl font-bold">Welcome back</h1>
       <p id="authDescription" class="muted text-sm mt-2 mb-5">Sign in to access your private workspace.</p>
       <div class="flex gap-2 mb-5"><button id="authLoginTab" class="authSwitch active" type="button">Sign in</button><button id="authSignupTab" class="authSwitch" type="button">Create account</button></div>
