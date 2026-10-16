@@ -1070,14 +1070,32 @@ setInterval(()=>{if(!document.hidden&&document.getElementById('page-markets')?.c
   });
 })();
 </script>
+<style id="receipt-market-motion-style">
+#tradeReceiptModal #receiptSparkline{overflow:visible}
+#tradeReceiptModal .receipt-market-panel{position:relative;overflow:hidden;background:radial-gradient(ellipse at 12% 0%,rgba(55,211,176,.13),transparent 52%),linear-gradient(145deg,#0b1c2a,#081321)!important;border-color:#315367!important}
+#tradeReceiptModal .receipt-market-panel:after{content:"";position:absolute;top:0;bottom:0;left:-35%;width:22%;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(99,226,211,.12),transparent);transform:skewX(-18deg);animation:receiptMarketSweep 4.8s linear infinite}
+#tradeReceiptModal .receipt-market-heading{display:flex;align-items:center;gap:8px}
+#tradeReceiptModal .receipt-live-dot{width:8px;height:8px;border-radius:50%;background:#65e6bc;box-shadow:0 0 0 0 rgba(101,230,188,.6);animation:receiptLivePulse 1.8s ease-out infinite;flex:none}
+#tradeReceiptModal .receipt-market-badge{font-size:10px;font-weight:800;letter-spacing:.09em;border:1px solid rgba(101,230,188,.3);color:#8ceccf;background:rgba(18,95,78,.2);border-radius:999px;padding:5px 8px}
+#tradeReceiptModal #receiptSparkline .receipt-live-line{stroke-dasharray:8 5;animation:receiptLineFlow 2.4s linear infinite;filter:drop-shadow(0 0 3px currentColor)}
+#tradeReceiptModal #receiptSparkline .receipt-live-fill{opacity:.14}
+#tradeReceiptModal #receiptSparkline .receipt-live-endpoint,#tradeReceiptModal #receiptSparkline .receipt-live-halo{animation:receiptEndpointPulse 1.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+#tradeReceiptModal #receiptSparkline .receipt-live-halo{opacity:.32}
+#tradeReceiptModal #receiptSparkline .receipt-grid{stroke:#294052;stroke-width:.7;stroke-dasharray:2 6}
+@keyframes receiptLineFlow{to{stroke-dashoffset:-52}}
+@keyframes receiptLivePulse{0%{box-shadow:0 0 0 0 rgba(101,230,188,.55)}75%,100%{box-shadow:0 0 0 8px rgba(101,230,188,0)}}
+@keyframes receiptEndpointPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.72}}
+@keyframes receiptMarketSweep{0%{left:-35%}100%{left:125%}}
+@media(prefers-reduced-motion:reduce){#tradeReceiptModal .receipt-market-panel:after,#tradeReceiptModal .receipt-live-dot,#tradeReceiptModal #receiptSparkline .receipt-live-line,#tradeReceiptModal #receiptSparkline .receipt-live-endpoint,#tradeReceiptModal #receiptSparkline .receipt-live-halo{animation:none!important}}
+</style>
 <div id="tradeReceiptModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="receiptHeading" style="position:fixed;inset:0;z-index:1500;background:#030914e8;backdrop-filter:blur(10px);padding:18px;align-items:center;justify-content:center">
   <section style="width:min(460px,100%);max-height:92vh;overflow:auto;border-radius:24px;border:1px solid #3c6c76;background:radial-gradient(circle at 90% 0,#21433d 0,transparent 42%),linear-gradient(150deg,#142132,#0b1420);box-shadow:0 28px 100px #000b;padding:24px">
     <div class="flex items-start justify-between gap-3"><div><div class="eyebrow mb-2">TRADE RECEIPT</div><h2 id="receiptHeading" class="text-xl font-extrabold">Position receipt</h2><p id="receiptSymbol" class="muted text-sm mt-1">—</p></div><button type="button" class="btn" id="receiptCloseTop" aria-label="Close receipt">✕</button></div>
     <div id="receiptStatus" class="pill mt-4" style="display:inline-flex">—</div>
-    <div class="mt-4 rounded-xl p-3" style="background:#091522;border:1px solid #2b3e50">
-      <div class="flex items-center justify-between gap-2"><div class="text-xs font-bold tracking-wide">LIVE MARKET MOVEMENT</div><div class="muted text-xs">Public quotes</div></div>
-      <svg id="receiptSparkline" viewBox="0 0 320 42" preserveAspectRatio="none" role="img" aria-label="Recent public market quote movement" style="display:block;width:100%;height:66px;margin-top:8px"><path d="M0,22 L320,22" stroke="#526274" stroke-width="2" stroke-dasharray="4 5" fill="none"/></svg>
-      <div id="receiptChartStatus" class="muted text-xs mt-1">Waiting for additional public market quotes</div>
+    <div class="receipt-market-panel mt-4 rounded-xl p-3" style="border:1px solid #315367">
+      <div class="flex items-center justify-between gap-2 flex-wrap"><div class="receipt-market-heading"><span class="receipt-live-dot"></span><div class="text-xs font-extrabold tracking-wide">LIVE MARKET MOVEMENT</div></div><span class="receipt-market-badge">LIVE FEED</span></div>
+      <svg id="receiptSparkline" viewBox="0 0 320 62" preserveAspectRatio="none" role="img" aria-label="Animated chart based on recent public market quotes" style="display:block;width:100%;height:88px;margin-top:8px"><defs><linearGradient id="receiptLineGradient" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#45d6b0"/><stop offset="55%" stop-color="#6be5c8"/><stop offset="100%" stop-color="#9ef5df"/></linearGradient><linearGradient id="receiptFillGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#53e0bd" stop-opacity=".42"/><stop offset="100%" stop-color="#53e0bd" stop-opacity="0"/></linearGradient></defs><path class="receipt-grid" d="M0 12H320 M0 31H320 M0 50H320" fill="none"/><path d="M0,31 L320,31" stroke="#526274" stroke-width="1.5" stroke-dasharray="4 5" fill="none"/></svg>
+      <div class="flex items-center justify-between gap-2 flex-wrap mt-1"><div id="receiptChartStatus" class="muted text-xs">Waiting for additional public market quotes</div><div class="text-xs font-semibold" style="color:#8ceccf">Price updates periodically</div></div>
     </div>
     <div class="mt-4 rounded-xl p-4" style="background:#091522;border:1px solid #2b3e50">
       <div class="muted text-xs">POSITION SIZE</div><div id="receiptAmount" class="text-2xl font-extrabold mt-1">$0.00</div>
