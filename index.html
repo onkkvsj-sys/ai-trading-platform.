@@ -813,7 +813,7 @@ function renderOrders(){
 let tradeReceiptTimer=null;
 function closeTradeReceipt(){
   const modal=$('tradeReceiptModal');
-  if(modal)modal.classList.add('hidden');
+  if(modal){modal.classList.add('hidden');modal.style.display='none';}
   if(tradeReceiptTimer){clearInterval(tradeReceiptTimer);tradeReceiptTimer=null;}
 }
 function openTradeReceipt(id){
@@ -845,6 +845,7 @@ function openTradeReceipt(id){
   if(tradeReceiptTimer){clearInterval(tradeReceiptTimer);tradeReceiptTimer=null;}
   refresh();
   modal.classList.remove('hidden');
+  modal.style.display='flex';
   tradeReceiptTimer=setInterval(refresh,2500);
 }
 function closeOrder(id){const o=state.orders.find(x=>x.id===id&&x.status==='Open');if(!o)return;const pnl=orderPnl(o);o.status='Closed';o.closedAt=new Date().toISOString();o.realizedPnl=Number(pnl.toFixed(2));state.realizedPnl=Number((Number(state.realizedPnl||0)+o.realizedPnl).toFixed(2));log('Position closed',o.symbol+' · realized P/L '+(o.realizedPnl>=0?'+':'−')+money(Math.abs(o.realizedPnl)),money(o.realizedPnl));save();toast('Position closed and result recorded in your portfolio.')}
