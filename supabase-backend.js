@@ -460,12 +460,16 @@
     const pendingKey='apex-show-account-success-'+user.id;
     const shownKey='apex-account-success-shown-'+user.id;
     if (localStorage.getItem(pendingKey)!=='1' || localStorage.getItem(shownKey)==='1') return;
-    const gift=state.gift || {amount:0,title:'Welcome Gift',terms:'Your welcome benefit is ready. It is not a bank deposit.'};
-    document.getElementById('giftModalTitle').textContent='Account created successfully!';
-    document.getElementById('giftModalIntro').textContent='Welcome, '+(profile?.display_name||user.user_metadata?.display_name||'friend')+'! Your account is ready. Here is your welcome gift.';
-    document.getElementById('giftModalGiftTitle').textContent=String(gift.title||'Welcome Gift');
-    document.getElementById('giftModalAmount').textContent=money(gift.amount);
-    document.getElementById('giftModalTerms').textContent=String(gift.terms||'Your welcome benefit is ready to explore.');
+    const gift=state.gift || {amount:0,title:'Welcome Gift',terms:'Promotional platform credit; separate from deposited funds.'};
+    const creditedGift=(state.credits||[]).find(c=>c.user_id===user.id&&String(c.note||'').startsWith('[welcome-gift-v1]'));
+    const actualAmount=Number(creditedGift?.amount);
+    document.getElementById('giftModalTitle').textContent='Thank you for creating your account!';
+    document.getElementById('giftModalIntro').textContent='Welcome, '+(profile?.display_name||user.user_metadata?.display_name||'friend')+'! Your account has been created successfully.';
+    document.getElementById('giftModalGiftTitle').textContent=String(gift.title||'Welcome Gift')+' · Added to your trading balance';
+    document.getElementById('giftModalAmount').textContent=money(Number.isFinite(actualAmount)&&actualAmount>0?actualAmount:Number(gift.amount)||0);
+    document.getElementById('giftModalTerms').textContent=creditedGift
+      ?'Your welcome gift has been added to your platform trading balance. It is promotional trading credit, not a bank deposit or withdrawable cash.'
+      :'Your welcome gift is being prepared. The amount shown is the configured welcome gift and will appear in your trading balance once the credit is confirmed.';
     const close=()=>{modal.classList.add('hidden');localStorage.setItem(shownKey,'1');localStorage.removeItem(pendingKey);};
     document.getElementById('giftModalClose').onclick=close;
     document.getElementById('giftModalContinue').onclick=close;
