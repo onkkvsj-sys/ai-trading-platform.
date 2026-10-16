@@ -857,8 +857,10 @@ function openTradeReceipt(id){
         const points=values.map((value,index)=>[(index/(values.length-1))*320,36-((value-minValue)/span)*30]);
         const line=points.map((point,index)=>(index?'L':'M')+point[0].toFixed(1)+','+point[1].toFixed(1)).join(' ');
         const trend=values[values.length-1]>=values[0];
-        const stroke=trend?'#6ee7b7':'#fda4af';
-        sparkline.innerHTML='<path d="'+line+'" fill="none" stroke="'+stroke+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="'+points[points.length-1][0].toFixed(1)+'" cy="'+points[points.length-1][1].toFixed(1)+'" r="3.5" fill="'+stroke+'"/>';
+        const stroke=trend?'#6ee7c8':'#ff9fb5';
+        const fill=line+' L320,58 L0,58 Z';
+        const last=points[points.length-1];
+        sparkline.innerHTML='<defs><linearGradient id="receiptLineGradient" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="'+stroke+'"/><stop offset="100%" stop-color="'+(trend?'#a2ffe5':'#ffc0cd')+'"/></linearGradient><linearGradient id="receiptFillGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="'+stroke+'" stop-opacity=".28"/><stop offset="100%" stop-color="'+stroke+'" stop-opacity="0"/></linearGradient></defs><path class="receipt-grid" d="M0 6H320 M0 21H320 M0 36H320 M0 51H320" fill="none"/><path class="receipt-live-fill" d="'+fill+'" fill="url(#receiptFillGradient)"/><path class="receipt-live-line" d="'+line+'" fill="none" stroke="url(#receiptLineGradient)" color="'+stroke+'" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle class="receipt-live-halo" cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="7" fill="'+stroke+'"/><circle class="receipt-live-endpoint" cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="3.5" fill="'+stroke+'"/>';
         $('receiptChartStatus').textContent='Public market quote history · '+samples.length+' samples';
       }else{
         sparkline.innerHTML='<path d="M0,22 L320,22" stroke="#526274" stroke-width="2" stroke-dasharray="4 5" fill="none"/>';
