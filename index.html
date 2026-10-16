@@ -803,11 +803,49 @@ function renderOrders(){
     const prior=lastPositionQuotes[o.asset],direction=prior&&current>prior?'up':prior&&current<prior?'down':'';
     const icon=o.symbol==='BTC'?'₿':o.symbol==='ETH'?'◆':o.symbol==='SOL'?'◎':o.symbol==='XRP'?'✕':'✥';
     const timestamp=isOpen?'Opened '+new Date(o.time).toLocaleString():'Closed '+new Date(o.closedAt||o.time).toLocaleString();
-    return '<article class="table-row position-card position-'+esc(o.asset)+' '+(isOpen&&direction?'price-tick-'+direction:'')+'"><div class="position-icon rounded-xl flex items-center justify-center" style="background:#1c2d43;border:1px solid #354963">'+icon+'</div><div class="position-details"><div class="position-heading"><div class="font-semibold text-sm">'+esc(o.symbol)+' · '+esc(o.side.toUpperCase())+'</div><span class="pill" style="background:'+(isOpen?'#12382f':'#202e3d')+';color:'+(isOpen?'#6ee7b7':'#9fb4c8')+'">'+(isOpen?'OPEN POSITION':'CLOSED')+'</span></div><div class="muted text-xs mt-2">Position size <strong>'+money(o.amount)+'</strong></div><div class="muted text-xs mt-1">Entry price <strong>'+fmtPrice(o.price)+'</strong></div><div class="muted text-xs mt-1">'+(isOpen?'Current market price <strong class="position-current-price '+(direction?'price-tick-'+direction:'')+'">'+fmtPrice(current)+'</strong>':'Closed '+new Date(o.closedAt||o.time).toLocaleString())+'</div><div class="text-sm mt-3 font-bold position-pnl '+(shownPnl>=0?'green':'text-rose-300')+' '+(isOpen&&direction?'price-tick-'+direction:'')+'">'+(isOpen?'Unrealized P/L ':'Realized P/L ')+(shownPnl>=0?'+':'−')+formatEarnings(Math.abs(shownPnl))+'</div></div>'+(isOpen?'<button class="btn position-action" data-close-order="'+esc(o.id)+'">Close position</button>':'<span class="pill position-status" style="background:#202e3d;color:#9fb4c8">Closed</span>')+'</article>';
+    return '<article class="table-row position-card position-'+esc(o.asset)+' '+(isOpen&&direction?'price-tick-'+direction:'')+'"><div class="position-icon rounded-xl flex items-center justify-center" style="background:#1c2d43;border:1px solid #354963">'+icon+'</div><div class="position-details"><div class="position-heading"><div class="font-semibold text-sm">'+esc(o.symbol)+' · '+esc(o.side.toUpperCase())+'</div><span class="pill" style="background:'+(isOpen?'#12382f':'#202e3d')+';color:'+(isOpen?'#6ee7b7':'#9fb4c8')+'">'+(isOpen?'OPEN POSITION':'CLOSED')+'</span></div><div class="muted text-xs mt-2">Position size <strong>'+money(o.amount)+'</strong></div><div class="muted text-xs mt-1">Entry price <strong>'+fmtPrice(o.price)+'</strong></div><div class="muted text-xs mt-1">'+(isOpen?'Current market price <strong class="position-current-price '+(direction?'price-tick-'+direction:'')+'">'+fmtPrice(current)+'</strong>':'Closed '+new Date(o.closedAt||o.time).toLocaleString())+'</div><div class="text-sm mt-3 font-bold position-pnl '+(shownPnl>=0?'green':'text-rose-300')+' '+(isOpen&&direction?'price-tick-'+direction:'')+'">'+(isOpen?'Unrealized P/L ':'Realized P/L ')+(shownPnl>=0?'+':'−')+formatEarnings(Math.abs(shownPnl))+'</div><div class="flex flex-col gap-2"><button type="button" class="btn position-action" data-view-receipt="'+esc(o.id)+'">View trade receipt</button>'+(isOpen?'<button class="btn position-action" data-close-order="'+esc(o.id)+'">Close position</button>':'<span class="pill position-status" style="background:#202e3d;color:#9fb4c8">Closed</span>')+'</div></article>';
   }).join(''):'<div class="muted py-6 text-center">No trades yet. Once verified funds are approved, choose <strong>Trade &amp; portfolio</strong> to open your first position.</div>';
+  document.querySelectorAll('[data-view-receipt]').forEach(b=>b.onclick=()=>openTradeReceipt(b.dataset.viewReceipt));
   document.querySelectorAll('[data-close-order]').forEach(b=>b.onclick=()=>closeOrder(b.dataset.closeOrder));
   for(const a of assets){const p=price(a[0]);if(p)lastPositionQuotes[a[0]]=p;}
   if($('positionUpdatedAt'))$('positionUpdatedAt').textContent=state.updatedAt?'Last quote '+new Date(state.updatedAt).toLocaleTimeString():'Waiting for quote…';
+}
+let tradeReceiptTimer=null;
+function closeTradeReceipt(){
+  const modal=$('tradeReceiptModal');
+  if(modal)modal.classList.add('hidden');
+  if(tradeReceiptTimer){clearInterval(tradeReceiptTimer);tradeReceiptTimer=null;}
+}
+function openTradeReceipt(id){
+  const modal=$('tradeReceiptModal');
+  if(!modal)return;
+  const refresh=()=>{
+    const o=(state.orders||[]).find(row=>String(row.id)===String(id));
+    if(!o){$('receiptStatus').textContent='Position unavailable';return;}
+    const isOpen=o.status==='Open';
+    const current=price(o.asset);
+    const pnl=isOpen?orderPnl(o):Number(o.realizedPnl)||0;
+    const positionValue=Math.max(0,Number(o.amount||0)+pnl);
+    $('receiptSymbol').textContent=(o.symbol||o.asset||'Asset')+' · '+String(o.side||'').toUpperCase();
+    $('receiptId').textContent=String(o.id||'').slice(0,18);
+    $('receiptStatus').textContent=isOpen?'OPEN · LIVE MARKET TRACKING':'CLOSED · RESULT RECORDED';
+    $('receiptAmount').textContent=money(Number(o.amount)||0);
+    $('receiptEntry').textContent=fmtPrice(Number(o.price)||0);
+    $('receiptCurrent').textContent=current?fmtPrice(current):'Waiting for market quote';
+    $('receiptValue').textContent=money(positionValue);
+    $('receiptPnl').textContent=(pnl>=0?'+':'−')+money(Math.abs(pnl));
+    $('receiptPnl').style.color=pnl>=0?'#6ee7b7':'#fda4af';
+    $('receiptTime').textContent=new Date(isOpen?(o.time||Date.now()):(o.closedAt||o.time||Date.now())).toLocaleString();
+    $('receiptValueLabel').textContent=isOpen?'Estimated position value':'Recorded position result value';
+    $('receiptPnlLabel').textContent=isOpen?'Estimated open P/L':'Realized P/L';
+    $('receiptDisclaimer').textContent=isOpen
+      ?'This receipt tracks an internal platform position using public market prices. The open P/L and estimated value can rise or fall. No external exchange order was placed, and open profit is not cash credited or withdrawable.'
+      :'This receipt records the platform position result. It is not proof of an external exchange execution or a bank payment.';
+  };
+  if(tradeReceiptTimer){clearInterval(tradeReceiptTimer);tradeReceiptTimer=null;}
+  refresh();
+  modal.classList.remove('hidden');
+  tradeReceiptTimer=setInterval(refresh,2500);
 }
 function closeOrder(id){const o=state.orders.find(x=>x.id===id&&x.status==='Open');if(!o)return;const pnl=orderPnl(o);o.status='Closed';o.closedAt=new Date().toISOString();o.realizedPnl=Number(pnl.toFixed(2));state.realizedPnl=Number((Number(state.realizedPnl||0)+o.realizedPnl).toFixed(2));log('Position closed',o.symbol+' · realized P/L '+(o.realizedPnl>=0?'+':'−')+money(Math.abs(o.realizedPnl)),money(o.realizedPnl));save();toast('Position closed and result recorded in your portfolio.')}
 function renderMessages(){const convs=state.conversations;$('messageCount').textContent=String(state.messages.length);$('conversations').innerHTML=convs.length?convs.map(c=>'<button class="w-full text-left p-3 rounded-lg hover:bg-[#172b3d] '+(state.activeConversation===c.id?'bg-[#1b3344]':'')+'" data-conv="'+c.id+'"><div class="text-sm font-semibold">'+esc(c.title)+'</div><div class="muted text-xs mt-1">'+(state.messages.filter(m=>m.conversation===c.id).length)+' messages</div></button>').join(''):'<div class="muted text-xs p-3">Start a conversation to send text, photos or audio attachments in this preview.</div>';document.querySelectorAll('[data-conv]').forEach(b=>b.onclick=()=>{state.activeConversation=b.dataset.conv;save()});const c=convs.find(c=>c.id===state.activeConversation);$('chatHeader').textContent=c?c.title:'Select or start a conversation';const msgs=state.messages.filter(m=>m.conversation===state.activeConversation);$('chatMessages').innerHTML=msgs.map(m=>'<div class="flex '+(m.sender===state.role?'justify-end':'justify-start')+'"><div class="max-w-[85%] rounded-2xl px-4 py-3 '+(m.sender===state.role?'bg-[#174438]':'bg-[#1b2c40]')+'"><div class="text-[10px] muted mb-1">'+(m.sender==='admin'?'Administrator':'Customer')+' · '+new Date(m.time).toLocaleTimeString()+'</div>'+(m.text?'<div class="text-sm whitespace-pre-wrap break-words">'+esc(m.text)+'</div>':'')+(m.data?m.type.startsWith('image/')?'<img src="'+m.data+'" class="max-w-full max-h-56 rounded-lg mt-2">':m.type.startsWith('audio/')?'<audio controls src="'+m.data+'" class="max-w-full mt-2"></audio>':'<a download="'+esc(m.name)+'" href="'+m.data+'" class="underline text-sm">Download attachment</a>':'')+'</div></div>').join('');$('chatMessages').scrollTop=$('chatMessages').scrollHeight}
@@ -994,6 +1032,30 @@ setInterval(()=>{if(!document.hidden&&document.getElementById('page-markets')?.c
       if(tradeTab)tradeTab.click();
     }
   });
+})();
+</script>
+<div id="tradeReceiptModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="receiptHeading" style="position:fixed;inset:0;z-index:1500;background:#030914e8;backdrop-filter:blur(10px);padding:18px;align-items:center;justify-content:center">
+  <section style="width:min(460px,100%);max-height:92vh;overflow:auto;border-radius:24px;border:1px solid #3c6c76;background:radial-gradient(circle at 90% 0,#21433d 0,transparent 42%),linear-gradient(150deg,#142132,#0b1420);box-shadow:0 28px 100px #000b;padding:24px">
+    <div class="flex items-start justify-between gap-3"><div><div class="eyebrow mb-2">TRADE RECEIPT</div><h2 id="receiptHeading" class="text-xl font-extrabold">Position receipt</h2><p id="receiptSymbol" class="muted text-sm mt-1">—</p></div><button type="button" class="btn" id="receiptCloseTop" aria-label="Close receipt">✕</button></div>
+    <div id="receiptStatus" class="pill mt-4" style="display:inline-flex">—</div>
+    <div class="mt-5 rounded-xl p-4" style="background:#091522;border:1px solid #2b3e50">
+      <div class="muted text-xs">POSITION SIZE</div><div id="receiptAmount" class="text-2xl font-extrabold mt-1">$0.00</div>
+      <div class="grid grid-cols-2 gap-4 mt-5"><div><div class="muted text-xs">Entry price</div><div id="receiptEntry" class="font-bold mt-1">—</div></div><div><div class="muted text-xs">Current market price</div><div id="receiptCurrent" class="font-bold mt-1">—</div></div></div>
+      <div class="mt-5 pt-4" style="border-top:1px dashed #34495b"><div id="receiptValueLabel" class="muted text-xs">Estimated position value</div><div id="receiptValue" class="text-2xl font-extrabold mt-1">$0.00</div><div id="receiptPnlLabel" class="muted text-xs mt-4">Estimated open P/L</div><div id="receiptPnl" class="text-xl font-extrabold mt-1">+$0.00</div></div>
+    </div>
+    <div class="mt-4"><div class="muted text-xs">Receipt reference</div><div id="receiptId" class="font-mono text-sm mt-1 break-all">—</div><div class="muted text-xs mt-3">Opened / closed</div><div id="receiptTime" class="text-sm mt-1">—</div></div>
+    <p id="receiptDisclaimer" class="muted text-xs leading-relaxed mt-5 p-3 rounded-xl" style="background:#0a1522;border:1px solid #28394a">—</p>
+    <button type="button" class="btn btn-primary w-full mt-4" id="receiptCloseBottom">Done</button>
+  </section>
+</div>
+<script>
+(function(){
+  const modal=document.getElementById('tradeReceiptModal');
+  if(!modal)return;
+  document.getElementById('receiptCloseTop')?.addEventListener('click',closeTradeReceipt);
+  document.getElementById('receiptCloseBottom')?.addEventListener('click',closeTradeReceipt);
+  modal.addEventListener('click',event=>{if(event.target===modal)closeTradeReceipt();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal.classList.contains('hidden'))closeTradeReceipt();});
 })();
 </script>
 </body></html>
