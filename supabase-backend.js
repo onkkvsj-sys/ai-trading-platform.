@@ -1040,19 +1040,58 @@
     log('Message sent',(state.role==='admin'?'Admin':'Customer')+' · '+(text||attachment_name||'attachment'));
     await reloadAndToast('Message sent.');
   };
-  // Persist account order records; these are not sent to an exchange.
+  // Start a live-market-linked platform position. No order is sent to an external exchange.
   document.getElementById('placeOrder').onclick = async () => {
-    const id=document.getElementById('tradeAsset').value, amount=Number(document.getElementById('tradeAmount').value), p=price(id);
+    const button=document.getElementById('placeOrder');
+    const statusTitle=document.getElementById('aiTradeStatusTitle');
+    const statusText=document.getElementById('aiTradeStatusText');
+    const statusDot=document.getElementById('aiTradeStatusDot');
+    const setTradeStatus=(title,message,active=false)=>{
+      if(statusTitle)statusTitle.textContent=title;
+      if(statusText)statusText.textContent=message;
+      if(statusDot)statusDot.className='w-2 h-2 rounded-full '+(active?'bg-emerald-400 animate-pulse':'bg-slate-500');
+    };
+    if(button.disabled)return;
+    if(!user)return toastSafe('Sign in to start a trading session.');
+    const id=document.getElementById('tradeAsset').value;
+    const amount=Number(document.getElementById('tradeAmount').value);
+    const side=document.getElementById('tradeSide').value;
     const a=assets.find(x=>x[0]===id);
-    if(!p) return toastSafe('No current price available. Refresh the market feed first.');
-    if(!state.updatedAt||Date.now()-new Date(state.updatedAt).getTime()>120000) return toastSafe('Market quote is stale. Wait for a fresh public price before placing a trade.');
-    if(!Number.isFinite(amount)||amount<=0) return toastSafe('Enter a valid order size.');
-    if(amount>totalBalance()) return toastSafe('Insufficient available trading balance. Only approved funding and administrator-recorded deposit credits are available to trade.');
-    const {error}=await client.from('simulated_orders').insert({user_id:user.id,asset_id:id,side:document.getElementById('tradeSide').value,notional_usd:amount,reference_price:p,execution_mode:'simulated',status:'open'});
-    if(error) return toastSafe('Trade could not be saved: '+error.message);
-    log('Trade placed',document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' at '+fmtPrice(p),money(amount));
-    await reloadAndToast('Trade saved. Portfolio value and position P/L will update when public prices refresh. This platform has not sent an order to an external exchange.');
-    if(window.apexShowTradeSuccess)window.apexShowTradeSuccess({amount,pnl:0,intro:document.getElementById('tradeSide').value.toUpperCase()+' '+a[1]+' position recorded at '+fmtPrice(p)+'. Follow its estimated P/L in your portfolio.'});
+    const validMarket=()=>Boolean(price(id)&&state.updatedAt&&Date.now()-new Date(state.updatedAt).getTime()<=120000);
+    if(!validMarket())return toastSafe('No fresh market price is available. Wait for the market feed to refresh.');
+    if(!Number.isFinite(amount)||amount<=0)return toastSafe('Enter a valid trading amount.');
+    if(amount>totalBalance())return toastSafe('Insufficient available trading balance. New-account welcome credit can be used if it is available; otherwise submit a funding request and wait for approval.');
+    button.disabled=true;
+    button.textContent='⏳ PROCESSING…';
+    setTradeStatus('Processing trading session','Checking your available balance and the latest public market price…',true);
+    try{
+      await new Promise(resolve=>setTimeout(resolve,1800));
+      if(!validMarket()){
+        setTradeStatus('Waiting for a fresh market price','The quote became stale during processing. Please try again when the market feed updates.');
+        return toastSafe('Market quote became stale. No position was opened; please try again.');
+      }
+      if(amount>totalBalance()){
+        setTradeStatus('Balance check failed','Your available trading balance changed before the position could be opened.');
+        return toastSafe('Your available balance changed during processing. No position was opened.');
+      }
+      const entryPrice=price(id);
+      const {error}=await client.from('simulated_orders').insert({user_id:user.id,asset_id:id,side,notional_usd:amount,reference_price:entryPrice,execution_mode:'simulated',status:'open'});
+      if(error){
+        setTradeStatus('Could not start trading','The position could not be saved. Your balance has not been deducted by this request.');
+        return toastSafe('Trading session could not be saved: '+error.message);
+      }
+      log('AI trading session started',side.toUpperCase()+' '+(a?.[1]||id)+' at '+fmtPrice(entryPrice),money(amount));
+      setTradeStatus('Trading active · live market tracking',money(amount)+' position opened at '+fmtPrice(entryPrice)+'. Estimated position value and profit/loss update from the latest public price.',true);
+      await reloadAndToast('Trading session started. Your position and estimated profit/loss will follow public market price updates. No external exchange order was sent.');
+      if(window.apexShowTradeSuccess)window.apexShowTradeSuccess({amount,pnl:0,intro:(a?.[1]||id)+' position opened at '+fmtPrice(entryPrice)+'. Follow its market-linked estimated P/L in your portfolio.'});
+    }catch(err){
+      console.error('Could not start market-linked trading session',err);
+      setTradeStatus('Trading could not start','An unexpected error occurred. Please try again.');
+      toastSafe('Trading session could not start. Please try again.');
+    }finally{
+      button.disabled=false;
+      button.textContent='▶ START AI TRADING';
+    }
   };
   closeOrder = async function(id) {
     const o=state.orders.find(x=>x.id===id&&x.status==='Open');
