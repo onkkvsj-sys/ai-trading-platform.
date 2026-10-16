@@ -848,6 +848,23 @@ function openTradeReceipt(id){
       previousReceiptPrice=current||previousReceiptPrice;
       previousReceiptPnl=pnl;
     }
+    const samples=(state.history?.[o.asset]||[]).filter(point=>Number(point?.p)>0).slice(-36);
+    const sparkline=$('receiptSparkline');
+    if(sparkline){
+      if(samples.length>1){
+        const values=samples.map(point=>Number(point.p));
+        const minValue=Math.min(...values),maxValue=Math.max(...values),span=maxValue-minValue||Math.max(maxValue*0.0001,0.000001);
+        const points=values.map((value,index)=>[(index/(values.length-1))*320,36-((value-minValue)/span)*30]);
+        const line=points.map((point,index)=>(index?'L':'M')+point[0].toFixed(1)+','+point[1].toFixed(1)).join(' ');
+        const trend=values[values.length-1]>=values[0];
+        const stroke=trend?'#6ee7b7':'#fda4af';
+        sparkline.innerHTML='<path d="'+line+'" fill="none" stroke="'+stroke+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="'+points[points.length-1][0].toFixed(1)+'" cy="'+points[points.length-1][1].toFixed(1)+'" r="3.5" fill="'+stroke+'"/>';
+        $('receiptChartStatus').textContent='Public market quote history · '+samples.length+' samples';
+      }else{
+        sparkline.innerHTML='<path d="M0,22 L320,22" stroke="#526274" stroke-width="2" stroke-dasharray="4 5" fill="none"/>';
+        $('receiptChartStatus').textContent='Waiting for additional public market quotes';
+      }
+    }
     $('receiptValue').textContent=money(positionValue);
     $('receiptPnl').textContent=(pnl>=0?'+':'−')+money(Math.abs(pnl));
     $('receiptPnl').style.color=pnl>=0?'#6ee7b7':'#fda4af';
@@ -855,8 +872,8 @@ function openTradeReceipt(id){
     $('receiptValueLabel').textContent=isOpen?'Estimated position value':'Recorded position result value';
     $('receiptPnlLabel').textContent=isOpen?'Estimated open P/L':'Realized P/L';
     $('receiptDisclaimer').textContent=isOpen
-      ?'Profit/loss follows public market prices and can rise or fall. This platform records positions internally; it does not send orders to an external exchange.'
-      :'Closed trade profit/loss has been recorded in your platform balance. This receipt represents the platform-recorded position, not an external exchange execution.';
+      ?'The chart uses actual public market quote updates, which arrive periodically and can be delayed. This platform tracks the position internally and does not execute orders on an external exchange. Open P/L is an estimate, not settled cash.'
+      :'This receipt shows the recorded result of a platform-tracked position. It does not confirm an external exchange execution or bank payment.';
   };
   if(tradeReceiptTimer){clearInterval(tradeReceiptTimer);tradeReceiptTimer=null;}
   refresh();
@@ -1055,7 +1072,12 @@ setInterval(()=>{if(!document.hidden&&document.getElementById('page-markets')?.c
   <section style="width:min(460px,100%);max-height:92vh;overflow:auto;border-radius:24px;border:1px solid #3c6c76;background:radial-gradient(circle at 90% 0,#21433d 0,transparent 42%),linear-gradient(150deg,#142132,#0b1420);box-shadow:0 28px 100px #000b;padding:24px">
     <div class="flex items-start justify-between gap-3"><div><div class="eyebrow mb-2">TRADE RECEIPT</div><h2 id="receiptHeading" class="text-xl font-extrabold">Position receipt</h2><p id="receiptSymbol" class="muted text-sm mt-1">—</p></div><button type="button" class="btn" id="receiptCloseTop" aria-label="Close receipt">✕</button></div>
     <div id="receiptStatus" class="pill mt-4" style="display:inline-flex">—</div>
-    <div class="mt-5 rounded-xl p-4" style="background:#091522;border:1px solid #2b3e50">
+    <div class="mt-4 rounded-xl p-3" style="background:#091522;border:1px solid #2b3e50">
+      <div class="flex items-center justify-between gap-2"><div class="text-xs font-bold tracking-wide">LIVE MARKET MOVEMENT</div><div class="muted text-xs">Public quotes</div></div>
+      <svg id="receiptSparkline" viewBox="0 0 320 42" preserveAspectRatio="none" role="img" aria-label="Recent public market quote movement" style="display:block;width:100%;height:66px;margin-top:8px"><path d="M0,22 L320,22" stroke="#526274" stroke-width="2" stroke-dasharray="4 5" fill="none"/></svg>
+      <div id="receiptChartStatus" class="muted text-xs mt-1">Waiting for additional public market quotes</div>
+    </div>
+    <div class="mt-4 rounded-xl p-4" style="background:#091522;border:1px solid #2b3e50">
       <div class="muted text-xs">POSITION SIZE</div><div id="receiptAmount" class="text-2xl font-extrabold mt-1">$0.00</div>
       <div class="grid grid-cols-2 gap-4 mt-5"><div><div class="muted text-xs">Entry price</div><div id="receiptEntry" class="font-bold mt-1">—</div></div><div><div class="muted text-xs">Current market price</div><div id="receiptCurrent" class="font-bold mt-1">—</div><div id="receiptMovement" class="text-xs font-semibold mt-2" aria-live="polite">Waiting for market movement…</div></div></div>
       <div class="mt-5 pt-4" style="border-top:1px dashed #34495b"><div id="receiptValueLabel" class="muted text-xs">Estimated position value</div><div id="receiptValue" class="text-2xl font-extrabold mt-1">$0.00</div><div id="receiptPnlLabel" class="muted text-xs mt-4">Estimated open P/L</div><div id="receiptPnl" class="text-xl font-extrabold mt-1">+$0.00</div></div>
